@@ -41,11 +41,11 @@ const WATCHDOG_START: u16 = 0x50C0;
 const WATCHDOG_END: u16 = 0x50FF;
 
 pub enum Address {
-    GameRom(u16),
-    VramTiles(u16),
-    VramPalettes(u16),
-    Ram(u16),
-    VramSprites(u16),
+    GameRom(usize),
+    VramTiles(usize),
+    VramPalettes(usize),
+    Ram(usize),
+    VramSprites(usize),
     IN0Register,
     InterruptEnable,
     SoundEnable,
@@ -56,8 +56,8 @@ pub enum Address {
     CoinLockoutRegister,
     CoinCounterRegister,
     IN1Register,
-    Sound(u16),
-    SpriteXYRegister(u16),
+    Sound(usize),
+    SpriteXYRegister(usize),
     DipSwitchRegister,
     WatchdogTimerReset
 }
@@ -72,22 +72,22 @@ pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
     
     match address {
         (GAME_ROM_START...GAME_ROM_END, false) =>
-            Ok(Address::GameRom(addr - GAME_ROM_START)),
+            Ok(Address::GameRom((addr - GAME_ROM_START) as usize)),
 
         (GAME_ROM_START...GAME_ROM_END, true) =>
             Err("Cannot write to ROM."),
 
         (VRAM_TILES_START...VRAM_TILES_END, true) =>
-            Ok(Address::VramTiles(addr - VRAM_TILES_START)),
+            Ok(Address::VramTiles((addr - VRAM_TILES_START) as usize)),
 
         (VRAM_PALETTES_START...VRAM_PALETTES_END, true) => 
-            Ok(Address::VramSprites(addr - VRAM_SPRITES_START)),
+            Ok(Address::VramSprites((addr - VRAM_SPRITES_START) as usize)),
 
         (RAM_START...RAM_END, _) => 
-            Ok(Address::Ram(addr - RAM_START)),
+            Ok(Address::Ram((addr - RAM_START) as usize)),
 
         (VRAM_SPRITES_START...VRAM_SPRITES_END, _) =>
-            Ok(Address::VramSprites(addr - VRAM_TILES_START)),
+            Ok(Address::VramSprites((addr - VRAM_TILES_START) as usize)),
         
         (IN0_REGISTER_START...IN0_REGISTER_END, false) =>
             Ok(Address::IN0Register),
@@ -105,10 +105,10 @@ pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
             Ok(Address::IN1Register),
 
         (SOUND_START...SOUND_END, true) => 
-            Ok(Address::Sound(addr - SOUND_START)),
+            Ok(Address::Sound((addr - SOUND_START) as usize)),
 
         (SPRITE_XY_START...SPRITE_XY_END, true) =>
-            Ok(Address::SpriteXYRegister(addr - SPRITE_XY_START)),
+            Ok(Address::SpriteXYRegister((addr - SPRITE_XY_START) as usize)),
         
         (DIP_SWITCH_START...DIP_SWITCH_END, true) =>
             Ok(Address::DipSwitchRegister),
