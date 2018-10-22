@@ -1,4 +1,5 @@
 use memory_map::{Address, map_address};
+use cpu::mem::Memory;
 use rom::Roms;
 
 pub struct MemoryMapper {
@@ -14,27 +15,30 @@ impl MemoryMapper {
         }
     }
 
-    pub fn write_byte(&mut self, byte: u8, addr: u16) {
+    fn map(addr: u16, writing: bool) -> Address {
+        match map_address(addr, writing) {
+            Ok(addr) => addr,
+            Err(why) => panic!("Failed to map memory address: {}", why),
+        }
+    }
+}
+
+impl Memory for MemoryMapper {
+
+    fn write_byte(&mut self, byte: u8, addr: u16) {
         match MemoryMapper::map(addr, true) {
             Address::Ram(offset) => {self.ram[offset] = byte;},
             _ => {}
         }
     }
 
-    pub fn read_byte(&mut self, addr: u16) -> u8 {
+    fn read_byte(&self, addr: u16) -> u8 {
         match MemoryMapper::map(addr, false) {
             Address::GameRom(offset) =>
                 self.roms.game_roms[offset/1000][offset%1000],
 
             Address::Ram(offset) => self.ram[offset],
             _ => 0,
-        }
-    }
-
-    fn map(addr: u16, writing: bool) -> Address {
-        match map_address(addr, writing) {
-            Ok(addr) => addr,
-            Err(why) => panic!("Failed to map memory address: {}", why),
         }
     }
 }
