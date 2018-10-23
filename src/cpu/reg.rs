@@ -108,6 +108,12 @@ impl Registers {
         self.f = (word & 0xFF) as u8;
         self.a = (word >> 8) as u8;
     }
+
+    pub fn cc(&self, index: usize) {
+        match index {
+            
+        }
+    }
 }
 
 #[cfg(test)]

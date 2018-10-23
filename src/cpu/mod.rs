@@ -26,10 +26,55 @@ impl Z80 {
         }
     }
 
-    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory) {
-        let immediate_8: u8 = memory.read_byte(self.reg.pc + 1);
-        let immediate_16: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
-                                (memory.read_byte(self.reg.pc + 2) as u16);
+    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory) -> usize {
+        let n: u8 = memory.read_byte(self.reg.pc + 1);
+        let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
+                      (memory.read_byte(self.reg.pc + 2) as u16);
+        let d: i8 = n as i8;
+
+        let x: u8 = opcode >> 6;
+        let y: u8 = (opcode & 0b00111000) >> 3;
+        let z: u8 = opcode & 0b00000111;
+
+        match (x, y, z) {
+            // NOP
+            (0, 0, 0) => {4},
+            // EX AF, AF'
+            (0, 1, 0) => {
+                //TODO needs to be implemented!!!
+                4
+            },
+            // DJNZ d
+            (0, 2, 0) => {
+                self.reg.b -= 1;
+                if self.reg.b > 0 {
+                    self.jr(d);
+                    13
+                } else {
+                    8
+                }
+            },
+            // JR d
+            (0, 3, 0) => {
+                self.jr(d);
+                12
+            },
+            // JR cc[y-4], d
+            (0, 4...7, 0) => {
+                8
+            }
+            
+            (_, _, _) => {4},
+        }
+    }
+
+    fn jr(&mut self, d: i8) {
+        let result = self.reg.pc as i8 + d;
+        if result < 0 {
+            self.reg.pc = 0;
+        } else {
+            self.reg.pc = result as u16;
+        }
     }
 }
 
