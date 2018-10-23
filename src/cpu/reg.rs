@@ -72,6 +72,34 @@ impl Registers {
             _ => {}
         }
     }
+    
+    /// Reads a 16 bit registry according to the tables on the z80
+    /// decoding opcodes documentation
+    ///
+    /// If sp is true, it will use the "rp" table with the stack pointer
+    /// as the third index. Otherwise, it will use the rp2 table with the
+    /// AF register as the third index.
+    pub fn read_16bit_r(&mut self, index: usize, sp: bool) -> u16  {
+        match index {
+            0 => self.bc(),
+            1 => self.de(),
+            2 => self.hl(),
+            3 => if sp {self.sp} else {self.af()},
+            _ => 0
+        }
+    }
+    
+    /// Same as read_16bit_r but it instead writes 16 bit integer <word>
+    /// to it
+    pub fn write_16bit_r(&mut self, index: usize, sp: bool, word: u16) {
+        match index {
+            0 => self.write_bc(word),
+            1 => self.write_de(word),
+            2 => self.write_hl(word),
+            3 => if sp {self.sp = word} else {self.write_af(word)},
+            _ => {}
+        }
+    }
 
     pub fn bc(&mut self) -> u16 {
         (self.b as u16) << 8 | (self.c as u16)
@@ -109,9 +137,17 @@ impl Registers {
         self.a = (word >> 8) as u8;
     }
 
-    pub fn cc(&self, index: usize) {
+    pub fn cc(&self, index: usize) -> bool {
         match index {
-            
+            0 => {index & (1 << 6) == 0},
+            1 => {index & (1 << 6) != 0},
+            2 => {index & 1 == 0},
+            3 => {index & 1 != 0},
+            4 => {index & (1 << 2) == 0},
+            5 => {index & (1 << 2) != 0},
+            6 => {index & (1 << 7) == 0},
+            7 => {index & (1 << 7) != 0},
+            _ => false
         }
     }
 }
@@ -143,5 +179,15 @@ mod tests {
         assert_eq!(reg.af(), 0x1234);
         assert_eq!(reg.a, 0x12);
         assert_eq!(reg.f, 0x34);
+    }
+    
+    #[test]
+    fn test_write_16bit_r() {
+        let mut reg = Registers::new();
+
+        reg.write_16bit_r(3, true, 0x1234);
+        assert_eq!(reg.sp, 0x1234);
+        reg.write_16bit_r(3, false, 0x1234);
+        assert_eq!(reg.af(), 0x1234);
     }
 }
