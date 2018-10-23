@@ -61,8 +61,48 @@ impl Z80 {
             },
             // JR cc[y-4], d
             (0, 4...7, 0) => {
-                8
+                if self.reg.cc((y - 4) as usize) {
+                    self.jr(d);
+                    return 12;
+                }
+                7
+            },
+            (0, _, 1) => {
+                let q = (y & 1) != 0;
+                let p: u8 = y >> 1;
+                
+                // ADD HL, rp[p]
+                if q {
+
+                    let result = self.reg.hl().wrapping_add(
+                        self.reg.read_16bit_r(p as usize, true)
+                    );
+                    self.reg.write_hl(result);
+                    11
+                }
+                // LD rp[p], nn
+                else {
+                    self.reg.write_16bit_r(p as usize, true, nn);
+                    10
+                }
             }
+            (0, _, 2) => {
+                let q = (y & 1) != 0;
+                let p: u8 = y >> 1;
+                
+                if q {
+                    match p {
+                        // LD A, (BC)
+                        0 => {self.reg.a = memory.read_byte(self.reg.bc()); 7},
+                        1 => {self.reg.a = memory.read_byte(self.reg.de()); 7},
+                        // 2 => {self.reg.write_hl(memory.read_word(nn)); 16}
+                        _ => {4}
+                    }
+                } else {
+                    0
+                }
+            }
+
             
             (_, _, _) => {4},
         }
@@ -75,30 +115,5 @@ impl Z80 {
         } else {
             self.reg.pc = result as u16;
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use cpu::mem::TestMemory;
-
-    #[test]
-    fn test_run_opcodes() {
-        let mut cpu = Z80::new();
-        cpu.run_opcodes(5, &mut TestMemory::new());
-        assert_eq!(cpu.reg.pc, 5);
-    }
-
-    #[test]
-    fn test_run_opcode_16bit_immediate() {
-        let mut cpu = Z80::new();
-        let mut mem = TestMemory::new();
-
-        mem.ram[0] = 0x01;
-        mem.ram[1] = 0x30;
-
-        cpu.run_opcode(0x01, &mut mem);
-        assert_eq!(cpu.reg.bc(), 0x3000);
     }
 }
