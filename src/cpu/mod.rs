@@ -163,11 +163,18 @@ impl Z80 {
             // LD r[y], n
             (0, _, 6) => {
                 self.write_r(y, n, memory);
+                self.inc_pc();
                 7
             },
+            // RLCA
+            (0, 0, 7) => {self.acc_shift(true, false); 4},
+            // RRCA
+            (0, 1, 7) => {self.acc_shift(true, true); 4},
+            // RLA
+            (0, 2, 7) => {self.acc_shift(false, false); 4},
+            // RRA
+            (0, 3, 7) => {self.acc_shift(false, true); 4},
 
-
-            
             (_, _, _) => {4},
         }
     }
@@ -203,6 +210,41 @@ impl Z80 {
             self.reg.pc = result as u16;
         }
     }
+    
+    // used for simplifying RLCA, RLA, RRCA, RRA instructions
+    //
+    // if carry_bit is true, the 7th bit is carried over to the 0th,
+    // otherwise the 0th is set to the carry flag before the instruction
+    //
+    // if right is true, a right shift is performed. left otherwise
+    fn acc_shift(&mut self, carry_bit: bool, right: bool) {
+        if right {
+            self.reg.a >>= 1;
+        } else {
+            self.reg.a <<= 1;
+        }
+        let carry_mask = if right {0b00000001} else {0b10000000};
+        let carry = (self.reg.a & carry_mask) != 0;
+        
+        let mut mask_shift = 0;
+        // if it is a right shift, the 0th bit should be carried to
+        // the 7th bit, not the other way around
+        if right {
+            mask_shift = 7;
+        }
+
+        let bit = if carry_bit {carry} else {self.reg.cc(3)};
+        if bit {
+            self.reg.a |= 1 << mask_shift;
+        } else {
+            self.reg.a &= !(1 << mask_shift);
+        }
+
+        self.reg.set_flag(0, carry);
+        self.reg.set_flag(1, false);
+        self.reg.set_flag(4, false);
+        self.inc_pc();
+    }
 
     // decrements register at p and increments pc
     fn dec_16(&mut self, p: u8) {
@@ -230,7 +272,7 @@ impl Z80 {
         let result = self.reg.read_8bit_r(y) + 1;
         self.write_r(y, result, mem);
         self.inc_pc();
-    }
+    }  
 }
 
 #[cfg(test)]
