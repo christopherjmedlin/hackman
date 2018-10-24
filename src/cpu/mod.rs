@@ -75,14 +75,14 @@ impl Z80 {
                 if q {
 
                     let result = self.reg.hl().wrapping_add(
-                        self.reg.read_16bit_r(p as usize, true)
+                        self.reg.read_16bit_r(p, true)
                     );
                     self.reg.write_hl(result);
                     11
                 }
                 // LD rp[p], nn
                 else {
-                    self.reg.write_16bit_r(p as usize, true, nn);
+                    self.reg.write_16bit_r(p, true, nn);
                     10
                 }
             }
@@ -115,7 +115,22 @@ impl Z80 {
                         _ => {4}
                     }
                 }
-            }
+            },
+            (0, _, 3) => {
+                let q = (y & 1) != 0;
+                let p: u8 = y >> 1;
+                
+                // DEC rp[p]
+                if q {
+                    self.dec(p);
+                    6
+                }
+                // INC rp[p]
+                else {
+                    self.inc(p);
+                    6
+                }
+            },
 
             
             (_, _, _) => {4},
@@ -129,6 +144,21 @@ impl Z80 {
         } else {
             self.reg.pc = result as u16;
         }
+        self.reg.pc += 1;
+    }
+
+    fn dec(&mut self, p: u8) {
+        let result = self.reg.read_16bit_r(p, true) - 1;
+        self.reg.write_16bit_r(
+            p, true, result
+        );
+    }
+
+    fn inc(&mut self, p: u8) {
+        let result = self.reg.read_16bit_r(p, true) + 1;
+        self.reg.write_16bit_r(
+            p, true, result
+        );
     }
 }
 

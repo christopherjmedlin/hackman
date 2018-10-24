@@ -43,7 +43,7 @@ impl Registers {
     
     /// Read 8 bit register at index <index> according to the table on
     /// this web page: http://www.z80.info/decoding.htm
-    pub fn read_8bit_r(&mut self, index: usize) -> u8 {
+    pub fn read_8bit_r(&mut self, index: u8) -> u8 {
         match index {
             0 => self.b,
             1 => self.c,
@@ -59,7 +59,7 @@ impl Registers {
 
     /// Write byte <byte> to 8 bit register at index <index> according to the
     /// table on the z80 decoding opcodes doc mentioned above
-    pub fn write_8bit_r(&mut self, index: usize, byte: u8) {
+    pub fn write_8bit_r(&mut self, index: u8, byte: u8) {
         match index {
             0 => self.b = byte,
             1 => self.c = byte,
@@ -79,7 +79,7 @@ impl Registers {
     /// If sp is true, it will use the "rp" table with the stack pointer
     /// as the third index. Otherwise, it will use the rp2 table with the
     /// AF register as the third index.
-    pub fn read_16bit_r(&mut self, index: usize, sp: bool) -> u16  {
+    pub fn read_16bit_r(&mut self, index: u8, sp: bool) -> u16  {
         match index {
             0 => self.bc(),
             1 => self.de(),
@@ -91,7 +91,7 @@ impl Registers {
     
     /// Same as read_16bit_r but it instead writes 16 bit integer <word>
     /// to it
-    pub fn write_16bit_r(&mut self, index: usize, sp: bool, word: u16) {
+    pub fn write_16bit_r(&mut self, index: u8, sp: bool, word: u16) {
         match index {
             0 => self.write_bc(word),
             1 => self.write_de(word),
