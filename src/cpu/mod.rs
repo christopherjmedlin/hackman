@@ -157,14 +157,36 @@ impl Z80 {
                 else {self.inc_16(p); 6}
             },
             // INC r[y]
-            (0, _, 4) => {self.inc_8(y); 4},
+            (0, _, 4) => {self.inc_8(y, memory); 4},
             // DEC r[y]
-            (0, _, 5) => {self.dec_8(y); 4},
-
+            (0, _, 5) => {self.dec_8(y, memory); 4},
+            // LD r[y], n
+            (0, _, 6) => {
+                self.write_r(y, n, memory);
+                7
+            },
 
 
             
             (_, _, _) => {4},
+        }
+    }
+    
+    // implements the r table in the decoding opcodes documentation with (hl)
+    // at 6
+    fn r(&mut self, index: u8, mem: &mut Memory) {
+        if index == 6 {
+            mem.read_byte(self.reg.hl());
+        } else {
+            self.reg.read_8bit_r(index);
+        }
+    }
+
+    fn write_r(&mut self, index: u8, byte: u8, mem: &mut Memory) {
+        if index == 6 {
+            mem.write_byte(byte, self.reg.hl());
+        } else {
+            self.reg.write_8bit_r(index, byte);
         }
     }
 
@@ -197,16 +219,16 @@ impl Z80 {
     }
     
     // decrements register at y and increments pc
-    fn dec_8(&mut self, y: u8) {
+    fn dec_8(&mut self, y: u8, mem: &mut Memory) {
         let result = self.reg.read_8bit_r(y) - 1;
-        self.reg.write_8bit_r(y, result);
+        self.write_r(y, result, mem);
         self.inc_pc();
     }
 
     // icrements register at y and increments pc
-    fn inc_8(&mut self, y: u8) {
+    fn inc_8(&mut self, y: u8, mem: &mut Memory) {
         let result = self.reg.read_8bit_r(y) + 1;
-        self.reg.write_8bit_r(y, result);
+        self.write_r(y, result, mem);
         self.inc_pc();
     }
 }
