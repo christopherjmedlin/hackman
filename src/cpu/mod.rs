@@ -94,12 +94,26 @@ impl Z80 {
                     match p {
                         // LD A, (BC)
                         0 => {self.reg.a = memory.read_byte(self.reg.bc()); 7},
+                        // LD A, (DE)
                         1 => {self.reg.a = memory.read_byte(self.reg.de()); 7},
-                        // 2 => {self.reg.write_hl(memory.read_word(nn)); 16}
+                        // LD HL, (nn)
+                        2 => {self.reg.write_hl(memory.read_word(nn)); 16}
+                        // LD A, (nn)
+                        3 => {self.reg.a = memory.read_byte(nn); 13},
                         _ => {4}
                     }
                 } else {
-                    0
+                    match p {
+                        // LD (BC), A
+                        0 => {memory.write_byte(self.reg.a, self.reg.bc()); 7},
+                        // LD (DE), A
+                        1 => {memory.write_byte(self.reg.a, self.reg.de()); 7},
+                        // LD (nn), HL
+                        2 => {memory.write_word(self.reg.hl(), nn); 16},
+                        // LD (nn), A
+                        3 => {memory.write_byte(self.reg.a, nn); 13},
+                        _ => {4}
+                    }
                 }
             }
 
@@ -117,3 +131,6 @@ impl Z80 {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
