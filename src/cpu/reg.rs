@@ -139,15 +139,24 @@ impl Registers {
 
     pub fn cc(&self, index: usize) -> bool {
         match index {
-            0 => {index & (1 << 6) == 0},
-            1 => {index & (1 << 6) != 0},
-            2 => {index & 1 == 0},
-            3 => {index & 1 != 0},
-            4 => {index & (1 << 2) == 0},
-            5 => {index & (1 << 2) != 0},
-            6 => {index & (1 << 7) == 0},
-            7 => {index & (1 << 7) != 0},
+            0 => {self.f & (1 << 6) == 0},
+            1 => {self.f & (1 << 6) != 0},
+            2 => {self.f & 1 == 0},
+            3 => {self.f & 1 != 0},
+            4 => {self.f & (1 << 2) == 0},
+            5 => {self.f & (1 << 2) != 0},
+            6 => {self.f & (1 << 7) == 0},
+            7 => {self.f & (1 << 7) != 0},
             _ => false
+        }
+    }
+    
+    /// Set bit <bit> of F register to 1
+    pub fn set_flag(&mut self, bit: usize, set: bool) {
+        if set { 
+            self.f |= 1 << bit;
+        } else {
+            self.f &= !(1 << bit);
         }
     }
 }
@@ -189,5 +198,18 @@ mod tests {
         assert_eq!(reg.sp, 0x1234);
         reg.write_16bit_r(3, false, 0x1234);
         assert_eq!(reg.af(), 0x1234);
+    }
+
+    #[test]
+    fn test_cc() {
+        let mut reg = Registers::new();
+
+        reg.set_flag(0, true);
+        assert_eq!(reg.cc(2), false);
+        assert_eq!(reg.cc(3), true);
+
+        reg.set_flag(0, false);
+        assert_eq!(reg.cc(2), true);
+        assert_eq!(reg.cc(3), false);
     }
 }
