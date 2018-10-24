@@ -27,3 +27,37 @@ fn test_jr() {
     cpu.run_opcodes(1, &mut mem);
     assert_eq!(cpu.reg.pc, 7);
 }
+
+#[test]
+fn test_indirect_loads() {
+    let mut cpu = Z80::new();
+    let mut mem = TestMemory::new();
+    cpu.reg.write_bc(0x0012);
+    mem.ram[0x0012] = 0x11;
+    
+    cpu.run_opcode(0x0A, &mut mem);
+
+    assert_eq!(cpu.reg.a, mem.ram[0x0012]);
+}
+
+#[test]
+fn test_16bit_inc_dec() {
+    let mut cpu = Z80::new();
+    let mut mem = TestMemory::new();
+
+    cpu.run_opcode(0x33, &mut mem);
+    assert_eq!(cpu.reg.sp, 1);
+    cpu.run_opcode(0x3B, &mut mem);
+    assert_eq!(cpu.reg.sp, 0);
+}
+
+#[test]
+fn test_8bit_inc_dec() {
+    let mut cpu = Z80::new();
+    let mut mem = TestMemory::new();
+
+    cpu.run_opcode(0x04, &mut mem);
+    assert_eq!(cpu.reg.b, 1);
+    cpu.run_opcode(0x05, &mut mem);
+    assert_eq!(cpu.reg.b, 0);
+}
