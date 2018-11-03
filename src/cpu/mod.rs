@@ -7,6 +7,8 @@ use cpu::mem::Memory;
 pub struct Z80 {
     reg: Registers,
     altreg: Registers,
+
+    halted: bool,
 }
 
 impl Z80 {
@@ -14,15 +16,24 @@ impl Z80 {
         Z80 {
             reg: Registers::new(),
             altreg: Registers::new(),
+
+            halted: false,
         }
     }
     
     /// Runs a specified number of opcodes
-    pub fn run_opcodes(&mut self, iters: usize, memory: &mut Memory) {
+    pub fn run_opcodes(&mut self, iters: usize, memory: &mut Memory) -> usize {
+        if self.halted {
+            return 0;
+        }
+        
+        let mut cycles = 0;
         for i in 0..iters {
             let opcode = memory.read_byte(self.reg.pc);
-            self.run_opcode(opcode, memory);
+            cycles += self.run_opcode(opcode, memory);
         }
+
+        cycles
     }
 
     fn run_opcode(&mut self, opcode: u8, memory: &mut Memory) -> usize {
@@ -40,7 +51,9 @@ impl Z80 {
             (0, 0, 0) => {self.inc_pc(); 4},
             // EX AF, AF'
             (0, 1, 0) => {
-                //TODO needs to be implemented!!!
+                let temp = self.altreg.af();
+                self.altreg.write_af(self.reg.af());
+                self.reg.write_af(temp);
                 4
             },
             // DJNZ d
@@ -174,6 +187,66 @@ impl Z80 {
             (0, 2, 7) => {self.acc_shift(false, false); 4},
             // RRA
             (0, 3, 7) => {self.acc_shift(false, true); 4},
+            // DAA
+            (0, 4, 7) => {
+                if self.reg.a & 0xF0 > 9 || self.reg.read_flag(4) {
+                    self.reg.a += 6;
+                }
+                if (self.reg.a & 0xF0) >> 4 > 9 {
+                    self.reg.a += 0x60;
+                    self.reg.set_flag(0, true);
+                }
+                let num = self.reg.a;
+                self.detect_parity(num);
+                self.inc_pc();
+                4
+            },
+            // CPL
+            (0, 5, 7) => {
+                self.reg.a = !self.reg.a;
+                self.inc_pc();
+                // set H and N
+                self.reg.set_flag(1, true);
+                self.reg.set_flag(4, true);
+                4
+            },
+            // SCF
+            (0, 6, 7) => {
+                self.reg.set_flag(0, true);
+                self.inc_pc();
+                // reset H and N
+                self.reg.set_flag(1, false);
+                self.reg.set_flag(4, false);
+                4
+            },
+            // CCF
+            (0, 7, 7) => {
+                // set H to old C
+                let old_c = self.reg.read_flag(0);
+                self.reg.set_flag(4, old_c);
+                // reset N
+                self.reg.set_flag(1, false);
+                // inverse C
+                let inverse_c = !self.reg.read_flag(0);
+                self.reg.set_flag(0, inverse_c);
+                4
+            },
+            // HALT
+            (1, 6, 6) => {
+                self.halted = true;
+                4
+            },
+            // LD r[y], r[z]
+            (1, _, _) => {
+                let temp = self.r(z, memory);
+                self.write_r(y, temp, memory);
+                4
+            }
+            // alu[y] r[z]
+            (2, _, _) => {
+                self.alu(y, z, memory);
+                4
+            }
 
             (_, _, _) => {4},
         }
@@ -181,11 +254,11 @@ impl Z80 {
     
     // implements the r table in the decoding opcodes documentation with (hl)
     // at 6
-    fn r(&mut self, index: u8, mem: &mut Memory) {
+    fn r(&mut self, index: u8, mem: &mut Memory) -> u8 {
         if index == 6 {
-            mem.read_byte(self.reg.hl());
+            mem.read_byte(self.reg.hl())
         } else {
-            self.reg.read_8bit_r(index);
+            self.reg.read_8bit_r(index)
         }
     }
 
@@ -195,6 +268,85 @@ impl Z80 {
         } else {
             self.reg.write_8bit_r(index, byte);
         }
+    }
+
+    fn alu(&mut self, y: u8, z: u8, mem: &mut Memory) {
+        match y {
+            // ADD A,
+            0 => {self.add(z, false, mem)},
+            // ADC a,
+            1 => {self.add(z, true, mem)},
+            // SUB a,
+            2 => {self.sub(z, false, mem)},
+            // SBC a,
+            3 => {self.sub(z, true, mem)},
+            // AND a,
+            4 => {},
+            // XOR a,
+            5 => {},
+            // OR a,
+            6 => {},
+            // CP a,
+            7 => {},
+            _ => {}
+        }
+        self.inc_pc();
+    }
+
+    fn add(&mut self, z: u8, add_carry: bool, mem: &mut Memory) {
+        let left = self.reg.a;
+        let right = self.r(z, mem);
+        let mut result = right.wrapping_add(left);
+
+        if add_carry {
+            let carry = self.reg.read_flag(0);
+            result = result.wrapping_add(carry as u8);
+            self.detect_overflow_add(right, left, carry);
+            self.detect_half_carry_add(right, left, carry);
+        } else {
+            self.detect_overflow_add(right, left, false);
+            self.detect_half_carry_add(right, left, false);
+        }
+        self.reg.a = result;
+    
+        self.reg.set_flag(0, (left + right) as u16 > 255);
+        self.reg.set_flag(1, false);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+    }
+
+    fn sub(&mut self, z: u8, sub_carry: bool, mem: &mut Memory) {
+        let left = self.reg.a;
+        let right = self.r(z, mem);
+        let mut result = left.wrapping_sub(right);
+
+        if sub_carry {
+            let carry = self.reg.read_flag(0);
+            result = result.wrapping_sub(carry as u8);
+            self.detect_overflow_sub(right, left, carry);
+            self.detect_half_carry_sub(right, left, carry);
+        } else {
+            self.detect_overflow_sub(right, left, false);
+            self.detect_half_carry_sub(right, left, false);
+        }
+        self.reg.a = result;
+
+        self.reg.set_flag(0, (left + right) as u16 > 255);
+        self.reg.set_flag(1, true);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+    }
+
+    fn and(&mut self, z: u8, mem: &mut Memory) {
+        let result = self.reg.a & self.r(z, mem);
+        self.reg.a = result;
+
+        self.detect_parity(result);
+        self.reg.set_flag(0, false);
+        self.reg.set_flag(1, false);
+        self.reg.set_flag(4, true);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
     }
 
     fn inc_pc(&mut self) {
@@ -262,17 +414,75 @@ impl Z80 {
     
     // decrements register at y and increments pc
     fn dec_8(&mut self, y: u8, mem: &mut Memory) {
-        let result = self.reg.read_8bit_r(y) - 1;
+        let val = self.reg.read_8bit_r(y);
+        let result = val.wrapping_sub(1);
+
+        self.reg.set_flag(1, true);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+        self.detect_half_carry_add(val, 1, false);
+        self.detect_overflow_add(val, 1, false);
         self.write_r(y, result, mem);
         self.inc_pc();
     }
 
     // icrements register at y and increments pc
     fn inc_8(&mut self, y: u8, mem: &mut Memory) {
-        let result = self.reg.read_8bit_r(y) + 1;
+        let val = self.reg.read_8bit_r(y);
+        let result = val.wrapping_add(1);
+        
+        self.reg.set_flag(1, false);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+        self.detect_half_carry_sub(val, 1, false);
+        self.detect_overflow_sub(val, 1, false);
+
         self.write_r(y, result, mem);
         self.inc_pc();
-    }  
+    }
+
+    // detects if a half carry occurs in an operation left + right
+    // and sets flag accordingly
+    fn detect_half_carry_add(&mut self, left: u8, right: u8, carry: bool) {
+        let mut left = left + (carry as u8);
+        self.reg.set_flag(4, (left & 0x0F) + (right & 0x0F) > 0x0F);
+    }
+
+    // detects if a half carry occurs in operation left - right
+    // and sets flag accordingly
+    fn detect_half_carry_sub(&mut self, left: u8, right: u8, carry: bool) {
+        let mut left = left - (carry as u8);
+        self.reg.set_flag(4, (left & 0x0F).wrapping_sub(right & 0x0F) > 0x0F);
+    }
+
+    // detects if an overflow occurs in operation left + right
+    // and sets flag accordingly
+    fn detect_overflow_add(&mut self, left: u8, right: u8, carry: bool) {
+        let mut left = left as i8 as i32;
+        let right = right as i8 as i32;
+        
+        left = left + right + (carry as i32);
+        self.reg.set_flag(2, (left < -128) || (left > 127));
+    }
+
+    // detects if an overflow occurs in operation left - right
+    // and sets flag accordingly
+    fn detect_overflow_sub(&mut self, left: u8, right: u8, carry: bool) {
+        let mut left = left as i8 as i32;
+        let right = right as i8 as i32;
+ 
+        left = left - right - (carry as i32);
+        self.reg.set_flag(2, (left < -128) || (left > 127));
+    }
+        
+    // sets parity flag accordingly to the given number
+    fn detect_parity(&mut self, mut num: u8) {
+        let mut number_of_ones = 0;
+        while num != 0 {
+            if num & 1 != 0 {number_of_ones += 1};
+            num >>= 1;
+        }
+    }
 }
 
 #[cfg(test)]

@@ -151,13 +151,17 @@ impl Registers {
         }
     }
     
-    /// Set bit <bit> of F register to 1
+    /// Set bit <bit> of F register to <set>
     pub fn set_flag(&mut self, bit: usize, set: bool) {
         if set { 
             self.f |= 1 << bit;
         } else {
             self.f &= !(1 << bit);
         }
+    }
+
+    pub fn read_flag(&mut self, bit: usize) -> bool {
+        self.f & 1 << bit != 0
     }
 }
 

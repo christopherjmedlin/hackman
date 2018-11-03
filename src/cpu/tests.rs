@@ -60,6 +60,13 @@ fn test_8bit_inc_dec() {
     assert_eq!(cpu.reg.b, 1);
     cpu.run_opcode(0x05, &mut mem);
     assert_eq!(cpu.reg.b, 0);
+    assert_eq!(cpu.reg.read_flag(6), true);
+    assert_eq!(cpu.reg.read_flag(1), true);
+
+    // test overflow
+    cpu.reg.b = 127;
+    cpu.run_opcode(0x05, &mut mem);
+    assert_eq!(cpu.reg.read_flag(2), true);
 }
 
 #[test]
@@ -81,4 +88,69 @@ fn test_acc_shift() {
     cpu.acc_shift(true, true);
     assert_eq!(cpu.reg.a, 0b1000_0011);
     assert_eq!(cpu.reg.cc(3), true);
+}
+
+#[test]
+fn test_detect_overflow() {
+    let mut cpu = Z80::new();
+    
+    cpu.detect_overflow_add(70, 70, false);
+    assert_eq!(cpu.reg.read_flag(2), true);
+    cpu.detect_overflow_add(10, 10, false);
+    assert_eq!(cpu.reg.read_flag(2), false);
+
+    cpu.detect_overflow_sub(70, 186, false);
+    assert_eq!(cpu.reg.read_flag(2), true);
+    cpu.detect_overflow_sub(70, 70, false);
+    assert_eq!(cpu.reg.read_flag(2), false);
+}
+
+#[test]
+fn test_halt() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+
+    cpu.run_opcode(0x76, &mut memory);
+    assert_eq!(cpu.run_opcodes(100, &mut memory), 0);
+}
+
+#[test]
+fn test_8bit_loading() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+    
+    cpu.reg.a = 5;
+    cpu.run_opcode(0x47, &mut memory);
+    assert_eq!(cpu.reg.b, 5);
+}
+
+#[test]
+fn test_add() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+
+    cpu.reg.a = 5;
+    cpu.reg.b = 6;
+    cpu.run_opcode(0x80, &mut memory);
+    assert_eq!(cpu.reg.a, 11);
+
+    cpu.reg.set_flag(0, true);
+    cpu.run_opcode(0x88, &mut memory);
+    // 11 + 6 + 1 (carry flag) = 18
+    assert_eq!(cpu.reg.a, 18);
+}
+
+#[test]
+fn test_sub() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+
+    cpu.reg.a = 5;
+    cpu.reg.b = 2;
+    cpu.run_opcode(0x90, &mut memory);
+    assert_eq!(cpu.reg.a, 3);
+
+    cpu.reg.set_flag(0, true);
+    cpu.run_opcode(0x98, &mut memory);
+    assert_eq!(cpu.reg.a, 0);
 }
