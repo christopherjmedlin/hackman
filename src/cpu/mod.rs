@@ -281,13 +281,13 @@ impl Z80 {
             // SBC a,
             3 => {self.sub(z, true, mem)},
             // AND a,
-            4 => {},
+            4 => {self.and(z, mem)},
             // XOR a,
-            5 => {},
+            5 => {self.xor(z, mem)},
             // OR a,
-            6 => {},
+            6 => {self.or(z, mem)},
             // CP a,
-            7 => {},
+            7 => {self.cp(z, mem)},
             _ => {}
         }
         self.inc_pc();
@@ -345,6 +345,44 @@ impl Z80 {
         self.reg.set_flag(0, false);
         self.reg.set_flag(1, false);
         self.reg.set_flag(4, true);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+    }
+
+    fn xor(&mut self, z: u8, mem: &mut Memory) {
+        let result = self.reg.a ^ self.r(z, mem);
+        self.reg.a = result;
+
+        self.detect_parity(result);
+        self.reg.set_flag(0, false);
+        self.reg.set_flag(1, false);
+        self.reg.set_flag(4, false);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+    }
+
+    fn or(&mut self, z: u8, mem: &mut Memory) {
+        let result = self.reg.a | self.r(z, mem);
+        self.reg.a = result;
+
+        self.detect_parity(result);
+        self.reg.set_flag(0, false);
+        self.reg.set_flag(1, false);
+        self.reg.set_flag(4, false);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+    }
+
+    fn cp(&mut self, z: u8, mem: &mut Memory) {
+        let left = self.reg.a;
+        let right = self.r(z, mem);
+        let mut result = left.wrapping_sub(right);
+
+        self.detect_overflow_sub(right, left, false);
+        self.detect_half_carry_sub(right, left, false);
+
+        self.reg.set_flag(0, (left + right) as u16 > 255);
+        self.reg.set_flag(1, true);
         self.reg.set_flag(6, result == 0);
         self.reg.set_flag(7, result > 127);
     }
