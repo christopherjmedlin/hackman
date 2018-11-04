@@ -241,11 +241,66 @@ impl Z80 {
                 let temp = self.r(z, memory);
                 self.write_r(y, temp, memory);
                 4
-            }
+            },
             // alu[y] r[z]
             (2, _, _) => {
                 self.alu(y, z, memory);
                 4
+            },
+            // RET cc[y]
+            (3, _, 0) => {
+                if self.reg.cc(y as usize) {
+                    self.ret(memory);
+                    11
+                } else {
+                    self.inc_pc();
+                    5
+                }
+            },
+            (3, _, 1) => {
+                let q = ((y & 1) != 0) as u8;
+                let p: u8 = y >> 1;
+
+                match (p, q) {
+                    // POP rp2[p]
+                    (_, 0) => {
+                        let right = self.pop_stack(memory) as u16;
+                        let left = self.pop_stack(memory) as u16;
+                        let word = (right << 8) | left;
+                        self.reg.write_16bit_r(p, false, word);
+                        self.inc_pc();
+                        10
+                    },
+                    // RET
+                    (0, 1) => {
+                        self.ret(memory);
+                        11
+                    },
+                    // EXX
+                    (1, _) => {
+                        let mut temp = self.altreg.bc();
+                        self.altreg.write_bc(self.reg.bc());
+                        self.reg.write_bc(temp);
+                        temp = self.altreg.de();
+                        self.altreg.write_de(self.reg.de());
+                        self.reg.write_de(temp);
+                        temp = self.altreg.hl();
+                        self.altreg.write_hl(self.reg.hl());
+                        self.reg.write_hl(temp);
+                        4
+                    },
+                    // JP HL
+                    (2, _) => {
+                        self.reg.pc = self.reg.hl();
+                        4
+                    },
+                    // LD SP, HL
+                    (3, _) => {
+                        self.reg.sp = self.reg.hl();
+                        4
+                    },
+                    (_, _) => {4}
+                }
             }
 
             (_, _, _) => {4},
@@ -477,6 +532,26 @@ impl Z80 {
 
         self.write_r(y, result, mem);
         self.inc_pc();
+    }
+
+    // pops top stack entry into pc
+    fn ret(&mut self, mem: &mut Memory) {
+        self.reg.pc = self.pop_stack(mem) as u16;      
+    }
+    
+    // returns byte at memory address pointed to by stack pointer and then
+    // increments stack pointer
+    fn pop_stack(&mut self, mem: &mut Memory) -> u8 {
+        let byte = mem.read_byte(self.reg.sp);
+        self.reg.sp += 1;
+        byte
+    }
+
+    // saves byte at memory address pointed to by stack pointer and then
+    // decrements stack pointer
+    fn push_stack(&mut self, mem: &mut Memory, byte: u8) {
+        self.reg.sp -= 1;
+        mem.write_byte(byte, self.reg.sp);
     }
 
     // detects if a half carry occurs in an operation left + right
