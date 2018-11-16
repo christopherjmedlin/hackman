@@ -72,20 +72,21 @@ fn test_8bit_inc_dec() {
 #[test]
 fn test_acc_shift() {
     let mut cpu = Z80::new();
+    let mut mem = &mut TestMemory::new();
 
     cpu.reg.a = 0b0000_0101;
-    cpu.acc_shift(true, false);
+    cpu.shift(7, true, false, mem);
     assert_eq!(cpu.reg.a, 0b0000_1010);
     assert_eq!(cpu.reg.cc(3), false);
 
     cpu.reg.a = 0b0101_0101;
-    cpu.acc_shift(false, false);
+    cpu.shift(7, false, false, mem);
     assert_eq!(cpu.reg.a, 0b1010_1010);
     assert_eq!(cpu.reg.cc(3), true);
     
     cpu.reg.set_flag(0, false);
     cpu.reg.a = 0b0000_0110;
-    cpu.acc_shift(true, true);
+    cpu.shift(7, true, true, mem);
     assert_eq!(cpu.reg.a, 0b1000_0011);
     assert_eq!(cpu.reg.cc(3), true);
 }
@@ -153,4 +154,53 @@ fn test_sub() {
     cpu.reg.set_flag(0, true);
     cpu.run_opcode(0x98, &mut memory);
     assert_eq!(cpu.reg.a, 0);
+}
+
+#[test]
+fn test_stack() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+
+    cpu.reg.sp = 50;
+    cpu.push_stack(&mut memory, 10);
+    cpu.push_stack(&mut memory, 6);
+    cpu.push_stack(&mut memory, 5);
+    assert_eq!(memory.ram[49], 10);
+    
+    assert_eq!(cpu.pop_stack(&mut memory), 5);
+    assert_eq!(cpu.pop_stack(&mut memory), 6);
+    assert_eq!(cpu.pop_stack(&mut memory), 10);
+    assert_eq!(cpu.reg.sp, 50);
+
+    cpu.push_stack_16(&mut memory, 500);
+    cpu.push_stack_16(&mut memory, 600);
+    assert_eq!(cpu.reg.sp, 46);
+    assert_eq!(cpu.pop_stack_16(&mut memory), 600);
+    assert_eq!(cpu.pop_stack_16(&mut memory), 500);
+}
+
+#[test]
+fn test_return() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+    
+    cpu.reg.pc = 100;
+    cpu.reg.sp = 50;
+    cpu.call(&mut memory, 150);
+    assert_eq!(cpu.reg.pc, 150);
+    cpu.ret(&mut memory);
+    assert_eq!(cpu.reg.pc, 103);
+    assert_eq!(cpu.reg.sp, 50);
+}
+
+#[test]
+fn test_bit_test() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+
+    cpu.reg.b = 2;
+    memory.ram[0] = 0xCB;
+    memory.ram[1] = 0x48;
+    cpu.run_opcode(memory.read_byte(0), &mut memory);
+    assert_eq!(cpu.reg.read_flag(6), true);
 }
