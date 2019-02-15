@@ -4,6 +4,7 @@ pub mod mem;
 use cpu::reg::Registers;
 use cpu::mem::Memory;
 
+// TODO make IO into a trait
 pub struct Z80 {
     reg: Registers,
     altreg: Registers,
@@ -92,11 +93,13 @@ impl Z80 {
                         self.reg.read_16bit_r(p, true)
                     );
                     self.reg.write_hl(result);
+                    self.inc_pc();
                     11
                 }
                 // LD rp[p], nn
                 else {
                     self.reg.write_16bit_r(p, true, nn);
+                    self.reg.pc += 3;
                     10
                 }
             }
@@ -354,12 +357,12 @@ impl Z80 {
             },
             // OUT (n), A
             (3, 2, 3) => {
-                // TODO Implement!!!
+                println!("Output translation");
                 4
             },
             // IN A, (n)
             (3, 3, 3) => {
-                // TODO Implement!!!
+                println!("Input translation");
                 4
             },
             // EX (SP), HL
@@ -427,7 +430,9 @@ impl Z80 {
                     },
                     // ED prefix
                     (2, _) => {
-                        // TODO implement!!!!
+                        self.inc_pc();
+                        let op = memory.read_byte(self.reg.pc);
+                        self.run_ed_opcode(op, memory);
                         4
                     },
                     // FD prefix
@@ -491,6 +496,90 @@ impl Z80 {
                 4
             }
 
+        }
+    }
+
+    // runs an ED prefixed opcode
+    fn run_ed_opcode(&mut self, opcode: u8, memory: &mut Memory) -> usize {
+        let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
+                      (memory.read_byte(self.reg.pc + 2) as u16);
+
+        let x: u8 = opcode >> 6;
+        let y: u8 = (opcode & 0b00111000) >> 3;
+        let z: u8 = opcode & 0b00000111;
+
+        match (x, y, z) {
+            // IN (C)
+            (1, 6, 0) => {
+                println!("Input translation");
+                self.inc_pc();
+                12
+            },
+            // IN r[y], (C)
+            (1, _, 0) => {
+                println!("Input translation");
+                self.inc_pc();
+                12
+            },
+            // OUT (C), 0
+            (1, 6, 1) => {
+                println!("Output translation");
+                self.inc_pc();
+                12
+            },
+            // OUT (C), r[y]
+            (1, _, 1) => {
+                println!("Output translation");
+                self.inc_pc();
+                12
+            },
+            (1, _, 2) => {
+                let q = (y & 1) != 0;
+                let p: u8 = y >> 1;
+                let value = self.reg.read_16bit_r(p, true);
+
+                // ADC HL, rp[p]
+                if q {
+                    self.add_16(value, true);
+                    self.inc_pc();
+                    15
+                }
+                // SBC HL, rp[p]
+                else {
+                    self.sub_16(value, true);
+                    self.inc_pc();
+                    15
+                }
+            },
+            (1, _, 3) => {
+                let q = (y & 1) != 0;
+                let p: u8 = y >> 1;
+
+                // LD rp[p], (nn)
+                if q {
+                    let val = memory.read_word(nn);
+                    self.reg.write_16bit_r(p, true, val);
+                    self.inc_pc();
+                    20
+                }
+                // LD (nn), rp[p]
+                else {
+                    let val = self.reg.read_16bit_r(p, true);
+                    memory.write_word(val, nn);
+                    self.inc_pc();
+                    20
+                }
+            },
+            // NEG
+            (1, _, 4) => {
+                let neg: i8 = 0;
+                self.reg.a = neg.wrapping_sub(self.reg.a as i8) as u8;
+                self.reg.set_flag(1, true);
+                8
+            },
+            (_, _, _) => {
+                4
+            }
         }
     }
     
@@ -557,6 +646,28 @@ impl Z80 {
         self.reg.set_flag(7, result > 127);
     }
 
+    fn add_16(&mut self, val: u16, sub_carry: bool) {
+        let left = self.reg.hl();
+        let right = val;
+        let mut result = left.wrapping_add(right);
+
+        if sub_carry {
+            let carry = self.reg.read_flag(0);
+            result = result.wrapping_add(carry as u16);
+            self.detect_overflow_add(right as u8, left as u8, carry);
+            self.detect_half_carry_add(right as u8, left as u8, carry);
+        } else {
+            self.detect_overflow_add(right as u8, left as u8, false);
+            self.detect_half_carry_add(right as u8, left as u8, false);
+        }
+        self.reg.write_hl(result);
+
+        self.reg.set_flag(0, (left + right) as u16 > 255);
+        self.reg.set_flag(1, false);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+    }
+
     fn sub(&mut self, val: u8, sub_carry: bool) {
         let left = self.reg.a;
         let right = val;
@@ -572,6 +683,28 @@ impl Z80 {
             self.detect_half_carry_sub(right, left, false);
         }
         self.reg.a = result;
+
+        self.reg.set_flag(0, (left + right) as u16 > 255);
+        self.reg.set_flag(1, true);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+    }
+
+    fn sub_16(&mut self, val: u16, sub_carry: bool) {
+        let left = self.reg.hl();
+        let right = val;
+        let mut result = left.wrapping_sub(right);
+
+        if sub_carry {
+            let carry = self.reg.read_flag(0);
+            result = result.wrapping_sub(carry as u16);
+            self.detect_overflow_sub(right as u8, left as u8, carry);
+            self.detect_half_carry_sub(right as u8, left as u8, carry);
+        } else {
+            self.detect_overflow_sub(right as u8, left as u8, false);
+            self.detect_half_carry_sub(right as u8, left as u8, false);
+        }
+        self.reg.write_hl(result);
 
         self.reg.set_flag(0, (left + right) as u16 > 255);
         self.reg.set_flag(1, true);

@@ -204,3 +204,30 @@ fn test_bit_test() {
     cpu.run_opcode(memory.read_byte(0), &mut memory);
     assert_eq!(cpu.reg.read_flag(6), true);
 }
+
+#[test]
+fn test_16bit_ld() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+    
+    cpu.reg.write_hl(0x1337);
+    memory.ram[0] = 0xED;
+    memory.ram[1] = 0x63;
+    memory.ram[2] = 0x00;
+    memory.ram[3] = 0x20;
+    cpu.run_opcode(memory.read_byte(0), &mut memory);
+    assert_eq!(memory.read_word(0x0020), 0x1337);
+}
+
+#[test]
+fn test_neg() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+    
+    cpu.reg.a = 8;
+    memory.ram[0] = 0xED;
+    memory.ram[1] = 0x4C;
+    cpu.run_opcode(memory.read_byte(0), &mut memory);
+
+    assert_eq!(cpu.reg.a as i8, -8);
+}
