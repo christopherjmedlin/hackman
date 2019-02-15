@@ -231,3 +231,18 @@ fn test_neg() {
 
     assert_eq!(cpu.reg.a as i8, -8);
 }
+
+#[test]
+fn test_interrupt() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+    
+    memory.ram[771] = 0x09;
+    cpu.interrupt(2);
+    cpu.reg.i = 3;
+    cpu.reg.sp = 100;;
+    cpu.run_opcode(0x00, &mut memory);
+    
+    // taking into account the PC increment
+    assert_eq!(cpu.reg.pc, 0x0A);
+}

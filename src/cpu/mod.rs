@@ -10,7 +10,10 @@ pub struct Z80 {
     altreg: Registers,
 
     halted: bool,
-    interrupts_enabled: bool
+    interrupts_enabled: bool,
+    interrupt: bool,
+    interrupt_data: u8,
+    interrupt_mode: u8,
 }
 
 impl Z80 {
@@ -20,8 +23,16 @@ impl Z80 {
             altreg: Registers::new(),
 
             halted: false,
-            interrupts_enabled: false,
+            interrupts_enabled: true,
+            interrupt: false,
+            interrupt_data: 0,
+            interrupt_mode: 0
         }
+    }
+
+    pub fn interrupt(&mut self, data: u8) {
+        self.interrupt = true;
+        self.interrupt_data = data;
     }
     
     /// Runs a specified number of opcodes
@@ -48,6 +59,22 @@ impl Z80 {
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
+        
+        if self.interrupts_enabled {
+            if self.interrupt {
+                match self.interrupt_mode {
+                    _ => {
+                        self.interrupt = false;
+                        let addr = memory.read_word((self.reg.i as u16 * 256) + self.interrupt_data as u16);
+                        println!("{}", 1);
+                        // push pc onto stack
+                        let pc = self.reg.pc;
+                        self.push_stack_16(memory, pc);
+                        self.reg.pc = addr;
+                    }
+                }
+            }
+        }
 
         match (x, y, z) {
             // NOP
