@@ -618,9 +618,77 @@ impl Z80 {
             // NEG
             (1, _, 4) => {
                 let neg: i8 = 0;
-                self.reg.a = neg.wrapping_sub(self.reg.a as i8) as u8;
+                let a = self.reg.a;
+                self.detect_overflow_sub(0, a, false);
+                self.detect_half_carry_sub(0, a, false);
+                let val = neg.wrapping_sub(a as i8) as u8;
+                self.reg.a = val;
+                self.reg.set_flag(0, false);
                 self.reg.set_flag(1, true);
+                self.reg.set_flag(6, val == 0);
+                self.reg.set_flag(7, val > 127);
                 8
+            },
+            // TODO i think these are supposed to do something other than just returning
+            // RETI
+            (1, 1, 5) => {
+                self.ret(memory);
+                14
+            },
+            // RETN
+            (1, _, 5) => {
+                self.ret(memory);
+                14
+            },
+            // IM
+            (1, _, 6) => {
+                self.interrupt_mode = match y {
+                    0 | 4 => 0,
+                    1 | 5 | 2 | 6 => 1,
+                    _ => 2
+                };
+                8
+            },
+            // LD I, A
+            (1, 0, 7) => {
+                self.reg.i = self.reg.a;
+                self.inc_pc();
+                9
+            },
+            // LD R, A
+            (1, 1, 7) => {
+                self.reg.r = self.reg.a;
+                self.inc_pc();
+                9
+            },
+            // LD A, I
+            (1, 2, 7) => {
+                self.reg.a = self.reg.i;
+                self.inc_pc();
+                9
+            },
+            // LD A, R
+            (1, 3, 7) => {
+                self.reg.a = self.reg.r;
+                self.inc_pc();
+                9
+            },
+            // RRD
+            (1, 4, 7) => {
+                // i have no clue if this is even used in pacman so f it
+                // TODO maybe implement in the future if i plan to reuse this z80 code
+                println!("RRD");
+                18
+            },
+            // RLD
+            (1, 5, 7) => {
+                // see above
+                println!("RLD");
+                18
+            },
+            (2, _, 0...3) => {
+                self.bli(y, z, memory, io);
+                16
             },
             (_, _, _) => {
                 4
@@ -644,6 +712,210 @@ impl Z80 {
         } else {
             self.reg.write_8bit_r(index, byte);
         }
+    }
+
+    fn bli(&mut self, a: u8, b: u8, mem: &mut Memory, io: &mut InputOutput) {
+        match (a, b) {
+            // LDI
+            (4, 0) => {
+                self.load_inc_dec(mem, true);       
+            },
+            // LDD
+            (5, 0) => {
+                self.load_inc_dec(mem, false);
+            },
+            // LDIR
+            (6, 0) => {
+                self.load_inc_dec(mem, true);
+                let bc = self.reg.bc();
+                // repeat if BC is not 0
+                if bc != 0 {
+                    self.load_inc_dec(mem, true);
+                }
+            },
+            // LDDR
+            (7, 0) => {
+                self.load_inc_dec(mem, false);
+                let bc = self.reg.bc();
+                // repeat if BC is not 0
+                if bc != 0 {
+                    self.load_inc_dec(mem, false);
+                }
+            },
+            // CPI
+            (4, 1) => {
+                self.comp_inc_dec(mem, true);
+            },
+            // CPD
+            (5, 1) => {
+                self.comp_inc_dec(mem, false);
+            },
+            // CPIR
+            (6, 1) => {
+                self.comp_inc_dec(mem, true);
+                let bc = self.reg.bc();
+                // repeat if BC is not 0
+                if bc != 0 {
+                    self.load_inc_dec(mem, false);
+                }
+            },
+            // CPDIR
+            (7, 1) => {
+                self.comp_inc_dec(mem, false);
+                let bc = self.reg.bc();
+                // repeat if BC is not 0
+                if bc != 0 {
+                    self.load_inc_dec(mem, false);
+                }
+            },
+            // INI
+            (4, 2) => {
+                mem.write_byte(io.input(self.reg.c), self.reg.hl());
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp + 1);
+                self.reg.b -= 1;
+            },
+            // IND
+            (5, 2) => {
+                mem.write_byte(io.input(self.reg.c), self.reg.hl());
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp - 1);
+                self.reg.b -= 1;
+            },
+            // INIR
+            (6, 2) => {
+                mem.write_byte(io.input(self.reg.c), self.reg.hl());
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp + 1);
+                self.reg.b -= 1;
+
+                if self.reg.b != 0 {
+                    mem.write_byte(io.input(self.reg.c), self.reg.hl());
+                    let tmp = self.reg.hl();
+                    self.reg.write_hl(tmp + 1);
+                    self.reg.b -= 1;
+                }
+            },
+            // INDR
+            (7, 2) => {
+                mem.write_byte(io.input(self.reg.c), self.reg.hl());
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp - 1);
+                self.reg.b -= 1;
+
+                if self.reg.b != 0 {
+                    mem.write_byte(io.input(self.reg.c), self.reg.hl());
+                    let tmp = self.reg.hl();
+                    self.reg.write_hl(tmp - 1);
+                    self.reg.b -= 1;
+                }
+            },
+            // OUTI
+            (4, 3) => {
+                io.output(self.reg.c, mem.read_byte(self.reg.hl()));
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp + 1);
+                self.reg.b -= 1;
+            },
+            // OUTD
+            (5, 2) => {
+                io.output(self.reg.c, mem.read_byte(self.reg.hl()));
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp - 1);
+                self.reg.b -= 1;
+            },
+            // OUTIR
+            (6, 2) => {
+                io.output(self.reg.c, mem.read_byte(self.reg.hl()));
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp + 1);
+                self.reg.b -= 1;
+
+                if self.reg.b != 0 {
+                    io.output(self.reg.c, mem.read_byte(self.reg.hl()));
+                    let tmp = self.reg.hl();
+                    self.reg.write_hl(tmp + 1);
+                    self.reg.b -= 1;
+                }
+            },
+            // OUTDR
+            (7, 2) => {
+                io.output(self.reg.c, mem.read_byte(self.reg.hl()));
+                let tmp = self.reg.hl();
+                self.reg.write_hl(tmp - 1);
+                self.reg.b -= 1;
+
+                if self.reg.b != 0 {
+                    io.output(self.reg.c, mem.read_byte(self.reg.hl()));
+                    let tmp = self.reg.hl();
+                    self.reg.write_hl(tmp - 1);
+                    self.reg.b -= 1;
+                }
+            },
+            (_, _) => {}
+        }
+    }
+    
+    // Loads (HL) into (DE) and then increments or decrements HL and DE
+    // based on the <inc> boolean. BC is always decremented
+    fn load_inc_dec(&mut self, mem: &mut Memory, inc: bool) {
+        let byte = mem.read_byte(self.reg.hl());
+        mem.write_byte(byte, self.reg.de());
+        
+        let mut tmp = self.reg.de();
+        if inc {
+            // increment HL and DE
+            self.reg.write_de(tmp + 1);
+            tmp = self.reg.hl();
+            self.reg.write_hl(tmp + 1);
+        } else {
+            // decrement HL and DE
+            self.reg.write_de(tmp - 1);
+            tmp = self.reg.hl();
+            self.reg.write_hl(tmp - 1);
+        }
+        tmp = self.reg.bc();
+        self.reg.write_bc(tmp - 1);
+    }
+    
+    // Compares (HL) and A and increments or decrements HL based on <inc>
+    // boolean. Again, BC is always decremented
+    fn comp_inc_dec(&mut self, mem: &mut Memory, inc: bool) {
+        let byte = mem.read_byte(self.reg.hl());
+        let acc = self.reg.a;
+        let result = byte - acc;
+        self.reg.set_flag(1, true);
+        self.detect_half_carry_sub(byte, acc, false);
+        self.reg.set_flag(6, result == 0);
+        self.reg.set_flag(7, result > 127);
+
+        let mut tmp = self.reg.hl();
+        if inc {
+            // increment HL
+            self.reg.write_hl(tmp + 1);
+        } else {
+            // decrement HL
+            self.reg.write_hl(tmp - 1);
+        }
+        tmp = self.reg.bc();
+        self.reg.write_bc(tmp - 1);
+    }
+
+    // Compares (HL) and A and increments or decrements HL based on <inc>
+    // boolean. Again, BC is always decremented
+    fn input_inc_dec(&mut self, mem: &mut Memory, io: &mut InputOutput, inc: bool) {
+        mem.write_byte(io.input(self.reg.c), self.reg.hl());
+
+        let mut tmp = self.reg.hl();
+        if inc {
+            // increment HL
+            self.reg.write_hl(tmp + 1);
+        } else {
+            // decrement HL
+            self.reg.write_hl(tmp - 1);
+        }
+        tmp = self.reg.bc();
+        self.reg.write_bc(tmp - 1);
     }
 
     fn alu(&mut self, operator: u8, val: u8) {
