@@ -1,8 +1,10 @@
 mod reg;
 pub mod mem;
+pub mod io;
 
 use cpu::reg::Registers;
 use cpu::mem::Memory;
+use cpu::io::InputOutput;
 
 // TODO make IO into a trait
 pub struct Z80 {
@@ -36,7 +38,7 @@ impl Z80 {
     }
     
     /// Runs a specified number of opcodes
-    pub fn run_opcodes(&mut self, iters: usize, memory: &mut Memory) -> usize {
+    pub fn run_opcodes(&mut self, iters: usize, memory: &mut Memory, io: &mut InputOutput) -> usize {
         if self.halted {
             return 0;
         }
@@ -44,13 +46,13 @@ impl Z80 {
         let mut cycles = 0;
         for i in 0..iters {
             let opcode = memory.read_byte(self.reg.pc);
-            cycles += self.run_opcode(opcode, memory);
+            cycles += self.run_opcode(opcode, memory, io);
         }
 
         cycles
     }
 
-    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory) -> usize {
+    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput) -> usize {
         let n: u8 = memory.read_byte(self.reg.pc + 1);
         let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
                       (memory.read_byte(self.reg.pc + 2) as u16);
@@ -379,17 +381,19 @@ impl Z80 {
             (3, 1, 3) => {
                 self.inc_pc();
                 let op = memory.read_byte(self.reg.pc);
-                self.run_cb_opcode(op, memory);
+                self.run_cb_opcode(op, memory, io);
                 4
             },
             // OUT (n), A
             (3, 2, 3) => {
-                println!("Output translation");
+                io.output(n, self.reg.a);
+                self.inc_pc();
                 4
             },
             // IN A, (n)
             (3, 3, 3) => {
-                println!("Input translation");
+                self.reg.a = io.input(n);
+                self.inc_pc();
                 4
             },
             // EX (SP), HL
@@ -459,7 +463,7 @@ impl Z80 {
                     (2, _) => {
                         self.inc_pc();
                         let op = memory.read_byte(self.reg.pc);
-                        self.run_ed_opcode(op, memory);
+                        self.run_ed_opcode(op, memory, io);
                         4
                     },
                     // FD prefix
@@ -485,7 +489,7 @@ impl Z80 {
     }
 
     // runs a CB prefixed opcode
-    fn run_cb_opcode(&mut self, opcode: u8, memory: &mut Memory) -> usize {
+    fn run_cb_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput) -> usize {
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
@@ -527,7 +531,7 @@ impl Z80 {
     }
 
     // runs an ED prefixed opcode
-    fn run_ed_opcode(&mut self, opcode: u8, memory: &mut Memory) -> usize {
+    fn run_ed_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput) -> usize {
         let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
                       (memory.read_byte(self.reg.pc + 2) as u16);
 
@@ -538,25 +542,39 @@ impl Z80 {
         match (x, y, z) {
             // IN (C)
             (1, 6, 0) => {
-                println!("Input translation");
+                let val = io.input(self.reg.c);
+
+                self.detect_parity(val);
+                self.reg.set_flag(1, false);
+                self.reg.set_flag(4, false);
+                self.reg.set_flag(6, val == 0);
+                self.reg.set_flag(7, val > 127);
                 self.inc_pc();
                 12
             },
             // IN r[y], (C)
             (1, _, 0) => {
-                println!("Input translation");
+                let val = io.input(self.reg.c);
+
+                self.detect_parity(val);
+                self.reg.set_flag(1, false);
+                self.reg.set_flag(4, false);
+                self.reg.set_flag(6, val == 0);
+                self.reg.set_flag(7, val > 127);
                 self.inc_pc();
+                self.reg.write_8bit_r(y, val);
                 12
             },
             // OUT (C), 0
             (1, 6, 1) => {
-                println!("Output translation");
+                io.output(self.reg.c, 0);
                 self.inc_pc();
                 12
             },
             // OUT (C), r[y]
             (1, _, 1) => {
-                println!("Output translation");
+                let val = self.reg.read_8bit_r(y);
+                io.output(self.reg.c, val);
                 self.inc_pc();
                 12
             },
