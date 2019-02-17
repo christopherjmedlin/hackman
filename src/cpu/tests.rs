@@ -281,3 +281,38 @@ fn test_io() {
     cpu.run_opcode(memory.read_byte(2), &mut memory, &mut io);
     assert_eq!(io.data, 1);
 }
+
+#[test]
+fn test_ix_operations() {
+    let mut cpu = Z80::new();
+    let mut memory = TestMemory::new();
+    let mut io = TestIO::new();
+
+    memory.ram[0] = 0xDD;
+    memory.ram[1] = 0x21;
+    memory.ram[2] = 0x13;
+    memory.ram[3] = 0x37;
+    memory.ram[4] = 0xDD;
+    memory.ram[5] = 0x39;
+    memory.ram[6] = 0x21;
+    memory.ram[7] = 0x11;
+    memory.ram[8] = 0x11;
+    // LD IX, **
+    cpu.run_opcode(memory.read_byte(0), &mut memory, &mut io);
+    cpu.reg.patch_ix(true);
+    assert_eq!(cpu.reg.hl(), 0x1337);
+    assert_eq!(cpu.reg.pc, 4);
+    cpu.reg.patch_ix(false);
+    cpu.reg.sp = 0x1000;
+    // ADD IX, SP
+    cpu.run_opcode(memory.read_byte(4), &mut memory, &mut io);
+    cpu.reg.patch_ix(true);
+    assert_eq!(cpu.reg.hl(), 0x2337);
+    assert_eq!(cpu.reg.pc, 6);
+    cpu.reg.patch_ix(false);
+    // test a regular HL opcode just incase
+    cpu.run_opcode(memory.read_byte(6), &mut memory, &mut io);
+    assert_eq!(cpu.reg.hl(), 0x1111);
+    cpu.reg.patch_ix(true);
+    assert_eq!(cpu.reg.hl(), 0x2337);
+}

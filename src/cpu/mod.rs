@@ -456,8 +456,24 @@ impl Z80 {
                     },
                     // DD prefix
                     (1, _) => {
-                        // TODO implement!!!!
-                        4
+                        self.inc_pc();
+                        let opcode = memory.read_byte(self.reg.pc);
+                        match opcode {
+                            // DDCB prefix
+                            0xCB => {
+                                4
+                            },
+                            // NONI
+                            0xDD | 0xED | 0xFD => {
+                                4    
+                            },
+                            _ => {
+                                self.reg.patch_ix(true);
+                                let cycles = self.run_opcode(opcode, memory, io);
+                                self.reg.patch_ix(false);
+                                cycles
+                            }
+                        }
                     },
                     // ED prefix
                     (2, _) => {
@@ -901,23 +917,6 @@ impl Z80 {
         self.reg.write_bc(tmp - 1);
     }
 
-    // Compares (HL) and A and increments or decrements HL based on <inc>
-    // boolean. Again, BC is always decremented
-    fn input_inc_dec(&mut self, mem: &mut Memory, io: &mut InputOutput, inc: bool) {
-        mem.write_byte(io.input(self.reg.c), self.reg.hl());
-
-        let mut tmp = self.reg.hl();
-        if inc {
-            // increment HL
-            self.reg.write_hl(tmp + 1);
-        } else {
-            // decrement HL
-            self.reg.write_hl(tmp - 1);
-        }
-        tmp = self.reg.bc();
-        self.reg.write_bc(tmp - 1);
-    }
-
     fn alu(&mut self, operator: u8, val: u8) {
         match operator {
             // ADD A,
@@ -1090,6 +1089,9 @@ impl Z80 {
             // RR
             3 => {self.shift(val, false, true, mem);},
             // SLA
+            4 => {
+                
+            }
             _ => {},
         }
 
@@ -1097,7 +1099,7 @@ impl Z80 {
         self.reg.set_flag(1, false);
         self.reg.set_flag(4, false);
         self.reg.set_flag(6, val == 0);
-        self.reg.set_flag(7, (val as i8) >= 0);
+        self.reg.set_flag(7, val > 127);
         self.detect_parity(val);
     }
 

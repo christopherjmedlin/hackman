@@ -8,8 +8,12 @@ pub struct Registers {
     pub a: u8,
     pub f: u8,
 
-    pub ix: u16,
-    pub iy: u16,
+    pub ixh: u8,
+    pub ixl: u8,
+    pub iyh: u8,
+    pub iyl: u8,
+    pub ix_patched: bool,
+    pub iy_patched: bool,
     pub sp: u16,
 
     pub i: u8,
@@ -30,8 +34,12 @@ impl Registers {
             h: 0,
             l: 0,
 
-            ix: 0,
-            iy: 0,
+            ixh: 0,
+            ixl: 0,
+            iyh: 0,
+            iyl: 0,
+            ix_patched: false,
+            iy_patched: false,
             sp: 0,
             
             i: 0,
@@ -49,8 +57,24 @@ impl Registers {
             1 => self.c,
             2 => self.d,
             3 => self.e,
-            4 => self.h,
-            5 => self.l,
+            4 => {
+                if self.ix_patched {
+                    self.ixh
+                } else if self.iy_patched {
+                    self.iyh
+                } else {
+                    self.h
+                }
+            }
+            5 => {
+                if self.ix_patched {
+                    self.ixl
+                } else if self.iy_patched {
+                    self.iyl
+                } else {
+                    self.l
+                }
+            }
             6 => self.f,
             7 => self.a,
             _ => 0,
@@ -65,8 +89,24 @@ impl Registers {
             1 => self.c = byte,
             2 => self.d = byte,
             3 => self.e = byte,
-            4 => self.h = byte,
-            5 => self.l = byte,
+            4 => {
+                if self.ix_patched {
+                    self.ixh = byte;
+                } else if self.iy_patched {
+                    self.iyh = byte;
+                } else {
+                    self.h = byte;
+                }
+            }
+            5 => {
+                if self.ix_patched {
+                    self.ixl = byte;
+                } else if self.iy_patched {
+                    self.iyl = byte;
+                } else {
+                    self.l = byte;
+                }
+            }
             6 => self.f = byte,
             7 => self.a = byte,
             _ => {}
@@ -110,7 +150,13 @@ impl Registers {
     }
 
     pub fn hl(&mut self) -> u16 {
-        (self.h as u16) << 8 | (self.l as u16)
+        if self.ix_patched {
+             (self.ixh as u16) << 8 | (self.ixl as u16)
+        } else if self.iy_patched {
+             (self.iyh as u16) << 8 | (self.iyl as u16)
+        } else {
+             (self.h as u16) << 8 | (self.l as u16)
+        }
     }
 
     pub fn af(&mut self) -> u16 {
@@ -128,8 +174,16 @@ impl Registers {
     }
 
     pub fn write_hl(&mut self, word: u16) {
-        self.l = (word & 0xFF) as u8;
-        self.h = (word >> 8) as u8;
+        if self.ix_patched {
+            self.ixl = (word & 0xFF) as u8;
+            self.ixh = (word >> 8) as u8;
+        } else if self.iy_patched {
+            self.iyl = (word & 0xFF) as u8;
+            self.iyh = (word >> 8) as u8;
+        } else {
+            self.l = (word & 0xFF) as u8;
+            self.h = (word >> 8) as u8;
+        }
     }
 
     pub fn write_af(&mut self, word: u16) {
@@ -162,6 +216,14 @@ impl Registers {
 
     pub fn read_flag(&mut self, bit: usize) -> bool {
         self.f & 1 << bit != 0
+    }
+
+    pub fn patch_ix(&mut self, patch: bool) {
+        self.ix_patched = patch;
+    }
+
+    pub fn patch_iy(&mut self, patch: bool) {
+        self.iy_patched = patch;
     }
 }
 
