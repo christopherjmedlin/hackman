@@ -1090,8 +1090,30 @@ impl Z80 {
             3 => {self.shift(val, false, true, mem);},
             // SLA
             4 => {
-                
+                let r = self.r(val, mem);
+                self.reg.set_flag(0, (val & 1) == 0);
+                self.write_r(val, r << 1, mem);
+            },
+            // SRA
+            5 => {
+                let r = self.r(val, mem);
+                self.reg.set_flag(0, (val & 1) == 0);
+                // preserve 7th bit
+                let bit_7 = r & (1 << 7);
+                self.write_r(val, (r >> 1) | bit_7, mem);
+            },
+            // SLL
+            6 => {
+                let r = self.r(val, mem);
+                self.reg.set_flag(0, (val & 1) == 0);
+                self.write_r(val, r << 1, mem);
+            },
+            7 => {
+                let r = self.r(val, mem);
+                self.reg.set_flag(0, (val & 1) == 0);
+                self.write_r(val, r >> 1, mem);
             }
+            // 
             _ => {},
         }
 
