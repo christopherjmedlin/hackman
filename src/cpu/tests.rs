@@ -79,24 +79,21 @@ fn test_8bit_inc_dec() {
 }
 
 #[test]
-fn test_acc_shift() {
+fn test_shift() {
     let mut cpu = Z80::new();
     let mut mem = &mut TestMemory::new();
 
-    cpu.reg.a = 0b0000_0101;
-    cpu.shift(7, true, false, mem);
-    assert_eq!(cpu.reg.a, 0b0000_1010);
+    let mut result = cpu.shift(0b0000_0101, true, false);
+    assert_eq!(result, 0b0000_1010);
     assert_eq!(cpu.reg.cc(3), false);
 
-    cpu.reg.a = 0b0101_0101;
-    cpu.shift(7, false, false, mem);
-    assert_eq!(cpu.reg.a, 0b1010_1010);
+    result = cpu.shift(0b0101_0101, false, false);
+    assert_eq!(result, 0b1010_1010);
     assert_eq!(cpu.reg.cc(3), true);
     
     cpu.reg.set_flag(0, false);
-    cpu.reg.a = 0b0000_0110;
-    cpu.shift(7, true, true, mem);
-    assert_eq!(cpu.reg.a, 0b1000_0011);
+    result = cpu.shift(0b0000_0110, true, true);
+    assert_eq!(result, 0b1000_0011);
     assert_eq!(cpu.reg.cc(3), true);
 }
 

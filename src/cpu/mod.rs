@@ -215,37 +215,29 @@ impl Z80 {
             },
             // RLCA
             (0, 0, 7) => {
-                self.shift(7, true, false, memory); 
-
-                self.reg.set_flag(1, false);
-                self.reg.set_flag(4, false);
+                let val = self.reg.a;
+                self.reg.a = self.rot(0, val);
                 self.inc_pc();
                 4
             },
             // RRCA
             (0, 1, 7) => {
-                self.shift(7, true, true, memory);
-
-                self.reg.set_flag(1, false);
-                self.reg.set_flag(4, false);
+                let val = self.reg.a;
+                self.reg.a = self.rot(1, val);
                 self.inc_pc();
                 4
             },
             // RLA
             (0, 2, 7) => {
-                self.shift(7, false, false, memory);
-
-                self.reg.set_flag(1, false);
-                self.reg.set_flag(4, false);
+                let val = self.reg.a;
+                self.reg.a = self.rot(2, val);
                 self.inc_pc();
                 4
             },
             // RRA
             (0, 3, 7) => {
-                self.shift(7, false, true, memory);
-
-                self.reg.set_flag(1, false);
-                self.reg.set_flag(4, false);
+                let val = self.reg.a;
+                self.reg.a = self.rot(3, val);
                 self.inc_pc();
                 4
             },
@@ -513,6 +505,9 @@ impl Z80 {
         match x {
             // rot[y] r[z]
             0 => {
+                let val = self.r(z, memory);
+                let result = self.rot(y, val);
+                self.write_r(z, result, memory);
                 self.inc_pc();
                 4
             },
@@ -1078,51 +1073,48 @@ impl Z80 {
         self.reg.set_flag(7, result > 127);
     }
 
-    fn rot(&mut self, operator: u8, val: u8, mem: &mut Memory) {
+    fn rot(&mut self, operator: u8, val: u8) -> u8{
+        let mut val = val;
         match operator {
             // RLC
-            0 => {self.shift(val, true, false, mem);},
+            0 => {self.shift(val, true, false);},
             // RRC
-            1 => {self.shift(val, true, true, mem);},
+            1 => {self.shift(val, true, true);},
             // RL
-            2 => {self.shift(val, false, false, mem);},
+            2 => {self.shift(val, false, false);},
             // RR
-            3 => {self.shift(val, false, true, mem);},
+            3 => {self.shift(val, false, true);},
             // SLA
             4 => {
-                let r = self.r(val, mem);
                 self.reg.set_flag(0, (val & 1) == 0);
-                self.write_r(val, r << 1, mem);
+                val <<= 1;
             },
             // SRA
             5 => {
-                let r = self.r(val, mem);
                 self.reg.set_flag(0, (val & 1) == 0);
                 // preserve 7th bit
-                let bit_7 = r & (1 << 7);
-                self.write_r(val, (r >> 1) | bit_7, mem);
+                let bit_7 = val & (1 << 7);
+                val = (val >> 1) | bit_7;
             },
             // SLL
             6 => {
-                let r = self.r(val, mem);
                 self.reg.set_flag(0, (val & 1) == 0);
-                self.write_r(val, r << 1, mem);
+                val <<= 1;
             },
+            // SRL
             7 => {
-                let r = self.r(val, mem);
                 self.reg.set_flag(0, (val & 1) == 0);
-                self.write_r(val, r >> 1, mem);
+                val >>= 1;
             }
-            // 
             _ => {},
         }
 
-        let val = self.r(val, mem);
         self.reg.set_flag(1, false);
         self.reg.set_flag(4, false);
         self.reg.set_flag(6, val == 0);
         self.reg.set_flag(7, val > 127);
         self.detect_parity(val);
+        val
     }
 
     fn inc_pc(&mut self) {
@@ -1145,10 +1137,8 @@ impl Z80 {
     // otherwise the 0th is set to the carry flag before the instruction
     //
     // if right is true, a right shift is performed. left otherwise
-    fn shift(&mut self, register: u8, carry_bit: bool, 
-                 right: bool, mem: &mut Memory) {
-        let mut value = self.r(register, mem);
-
+    // TODO jesus christ what were you thinking, me?
+    fn shift(&mut self, mut value: u8, carry_bit: bool, right: bool) -> u8 {
         if right {
             value >>= 1;
         } else {
@@ -1171,8 +1161,8 @@ impl Z80 {
             value &= !(1 << mask_shift);
         }
         
-        self.write_r(register, value, mem);
         self.reg.set_flag(0, carry);
+        value
     }
 
     // shift but a zero is copied to bit
