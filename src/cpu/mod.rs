@@ -46,13 +46,13 @@ impl Z80 {
         let mut cycles = 0;
         for i in 0..iters {
             let opcode = memory.read_byte(self.reg.pc);
-            cycles += self.run_opcode(opcode, memory, io);
+            cycles += self.run_opcode(opcode, memory, io, false);
         }
 
         cycles
     }
 
-    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput) -> usize {
+    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput, ext: bool) -> usize {
         let n: u8 = memory.read_byte(self.reg.pc + 1);
         let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
                       (memory.read_byte(self.reg.pc + 2) as u16);
@@ -372,8 +372,7 @@ impl Z80 {
             // CB prefix
             (3, 1, 3) => {
                 self.inc_pc();
-                let op = memory.read_byte(self.reg.pc);
-                self.run_cb_opcode(op, memory, io);
+                self.run_cb_opcode(memory, io, ext);
                 4
             },
             // OUT (n), A
@@ -451,7 +450,7 @@ impl Z80 {
                         self.inc_pc();
                         let opcode = memory.read_byte(self.reg.pc);
                         self.reg.patch_ix(true);
-                        let cycles = self.run_opcode(opcode, memory, io);
+                        let cycles = self.run_opcode(opcode, memory, io, true);
                         self.reg.patch_ix(false);
                         cycles
                     },
@@ -467,7 +466,7 @@ impl Z80 {
                         self.inc_pc();
                         let opcode = memory.read_byte(self.reg.pc);
                         self.reg.patch_iy(true);
-                        let cycles = self.run_opcode(opcode, memory, io);
+                        let cycles = self.run_opcode(opcode, memory, io, true);
                         self.reg.patch_iy(false);
                         cycles
                     },
@@ -489,23 +488,48 @@ impl Z80 {
     }
 
     // runs a CB prefixed opcode
-    fn run_cb_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput) -> usize {
+    fn run_cb_opcode(&mut self, memory: &mut Memory, io: &mut InputOutput, ext: bool) -> usize {
+        let mut d: u16 = 0;
+        if ext {
+            // cast to u16 because addresses are 16 bit
+            d = memory.read_byte(self.reg.pc) as u16;
+            // account for displacement byte
+            self.inc_pc();
+        }
+
+        let opcode = memory.read_byte(self.reg.pc);
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
-        
+
         match x {
             // rot[y] r[z]
             0 => {
-                let val = self.r(z, memory);
-                let result = self.rot(y, val);
-                self.write_r(z, result, memory);
+                if z == 6 {
+                    let val = memory.read_byte(self.reg.hl() + d);
+                    let result = self.rot(y, val);
+                    memory.write_byte(result, self.reg.hl() + d);
+                } else if ext {
+                    let val = memory.read_byte(self.reg.hl() + d);
+                    let result = self.rot(y, val);
+                    memory.write_byte(result, self.reg.hl() + d);
+                    self.write_r(z, result, memory);
+                } else {
+                    let val = self.r(z, memory);
+                    let result = self.rot(y, val);
+                    self.write_r(z, result, memory);
+                }
                 self.inc_pc();
                 4
             },
             // BIT y, r[z]
             1 => {
-                let val = self.r(z, memory);
+                // (IX + d) if ext, r[z] otherwise
+                let val = if ext {
+                    memory.read_byte(self.reg.hl() + d)
+                } else {
+                    self.r(z, memory)
+                };
                 self.reg.set_flag(6, (val & 1 << y) != 0);
                 self.reg.set_flag(1, false);
                 self.reg.set_flag(4, true);
@@ -514,22 +538,41 @@ impl Z80 {
             },
             // RES y, r[z]
             2 => {
-                let val = self.r(z, memory);
-                self.write_r(z, val & !(1 << y), memory);
+                if z == 6 {
+                    let val = memory.read_byte(self.reg.hl() + d);
+                    memory.write_byte(val & !(1 << y), self.reg.hl() + d);
+                } else if ext {
+                    let val = memory.read_byte(self.reg.hl() + d);
+                    let result = val & !(1 << y);
+                    memory.write_byte(result, self.reg.hl() + d);
+                    self.write_r(z, result, memory);
+                } else {
+                    let val = self.r(z, memory);
+                    self.write_r(z, val & !(1 << y), memory);
+                }
                 self.inc_pc();
                 8
             },
             // SET y, r[z]
             3 => {
-                let val = self.r(z, memory);
-                self.write_r(z, val | (1 << y), memory);
+                if z == 6 {
+                    let val = memory.read_byte(self.reg.hl() + d);
+                    memory.write_byte(val | (1 << y), self.reg.hl() + d);
+                } else if ext {
+                    let val = memory.read_byte(self.reg.hl() + d);
+                    let result = val | (1 << y);
+                    memory.write_byte(result, self.reg.hl() + d);
+                    self.write_r(z, result, memory);
+                } else {
+                    let val = self.r(z, memory);
+                    self.write_r(z, val | (1 << y), memory);
+                }
                 self.inc_pc();
                 8 
             },
             _ => {
                 4
             }
-
         }
     }
 
