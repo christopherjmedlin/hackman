@@ -450,22 +450,10 @@ impl Z80 {
                     (1, _) => {
                         self.inc_pc();
                         let opcode = memory.read_byte(self.reg.pc);
-                        match opcode {
-                            // DDCB prefix
-                            0xCB => {
-                                4
-                            },
-                            // NONI
-                            0xDD | 0xED | 0xFD => {
-                                4    
-                            },
-                            _ => {
-                                self.reg.patch_ix(true);
-                                let cycles = self.run_opcode(opcode, memory, io);
-                                self.reg.patch_ix(false);
-                                cycles
-                            }
-                        }
+                        self.reg.patch_ix(true);
+                        let cycles = self.run_opcode(opcode, memory, io);
+                        self.reg.patch_ix(false);
+                        cycles
                     },
                     // ED prefix
                     (2, _) => {
@@ -476,8 +464,12 @@ impl Z80 {
                     },
                     // FD prefix
                     (3, _) => {
-                        // TODO implement!!!!
-                        4
+                        self.inc_pc();
+                        let opcode = memory.read_byte(self.reg.pc);
+                        self.reg.patch_iy(true);
+                        let cycles = self.run_opcode(opcode, memory, io);
+                        self.reg.patch_iy(false);
+                        cycles
                     },
                     (_, _) => {4}
                 }
