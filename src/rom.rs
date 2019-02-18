@@ -8,7 +8,7 @@ const ROM_FILE_NAMES: [&str; 10] = [
     "pacman.6h",
     "pacman.6j",
     "82s123.7f",
-    "82s123.4a",
+    "82s126.4a",
     "pacman.5e",
     "pacman.5f",
     "82s126.1m",
@@ -36,11 +36,11 @@ impl Roms {
         }
     }
 
-    pub fn load(directory: &str) -> Self {
+    pub fn load(directory: &Path) -> Self {
         let mut roms = Roms::new();
 
         for file_name in ROM_FILE_NAMES.iter() {
-            let path = Path::new(directory).join(file_name);
+            let path = directory.join(file_name);
 
             let mut file = match File::open(&path) {
                 Err(why) => panic!("Missing ROMs"),
