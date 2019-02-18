@@ -59,7 +59,7 @@ impl Z80 {
         let nn: u16 = memory.read_word(self.reg.pc + 1);
         let d: i8 = n as i8;
         
-        println!("{:x}", nn);
+        println!("{:x}", opcode);
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
@@ -1264,7 +1264,7 @@ impl Z80 {
     // increments stack pointer
     fn pop_stack(&mut self, mem: &mut Memory) -> u8 {
         let byte = mem.read_byte(self.reg.sp);
-        self.reg.sp += 1;
+        self.reg.sp -= 1;
         byte
     }
 

@@ -18,7 +18,7 @@ impl<'a> MemoryMapper<'a> {
     fn map(addr: u16, writing: bool) -> Address {
         match map_address(addr, writing) {
             Ok(addr) => addr,
-            Err(why) => panic!("Failed to map memory address: {}", why),
+            Err(why) => panic!("Failed to map memory address: 0x{:x}", addr),
         }
     }
 }
@@ -35,7 +35,7 @@ impl<'a> Memory for MemoryMapper<'a> {
     fn read_byte(&self, addr: u16) -> u8 {
         match MemoryMapper::map(addr, false) {
             Address::GameRom(offset) =>
-                self.roms.game_roms[offset/1000][offset%1000],
+                self.roms.game_roms[offset/0x1000][offset%0x1000],
 
             Address::Ram(offset) => self.ram[offset],
             _ => 0,

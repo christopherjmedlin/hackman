@@ -77,17 +77,17 @@ pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
         (GAME_ROM_START...GAME_ROM_END, true) =>
             Err("Cannot write to ROM."),
 
-        (VRAM_TILES_START...VRAM_TILES_END, true) =>
+        (VRAM_TILES_START...VRAM_TILES_END, _) =>
             Ok(Address::VramTiles((addr - VRAM_TILES_START) as usize)),
 
-        (VRAM_PALETTES_START...VRAM_PALETTES_END, true) => 
-            Ok(Address::VramSprites((addr - VRAM_SPRITES_START) as usize)),
+        (VRAM_PALETTES_START...VRAM_PALETTES_END, _) => 
+            Ok(Address::VramSprites((addr - VRAM_PALETTES_START) as usize)),
 
         (RAM_START...RAM_END, _) => 
             Ok(Address::Ram((addr - RAM_START) as usize)),
 
         (VRAM_SPRITES_START...VRAM_SPRITES_END, _) =>
-            Ok(Address::VramSprites((addr - VRAM_TILES_START) as usize)),
+            Ok(Address::VramSprites((addr - VRAM_SPRITES_START) as usize)),
         
         (IN0_REGISTER_START...IN0_REGISTER_END, false) =>
             Ok(Address::IN0Register),
@@ -101,7 +101,7 @@ pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
         (COIN_LOCKOUT_REGISTER, true) => Ok(Address::CoinLockoutRegister),
         (COIN_COUNTER_REGISTER, true) => Ok(Address::CoinCounterRegister),
         
-        (IN1_REGISTER_START...IN1_REGISTER_END, true) =>
+        (IN1_REGISTER_START...IN1_REGISTER_END, false) =>
             Ok(Address::IN1Register),
 
         (SOUND_START...SOUND_END, true) => 
@@ -110,10 +110,10 @@ pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
         (SPRITE_XY_START...SPRITE_XY_END, true) =>
             Ok(Address::SpriteXYRegister((addr - SPRITE_XY_START) as usize)),
         
-        (DIP_SWITCH_START...DIP_SWITCH_END, true) =>
+        (DIP_SWITCH_START...DIP_SWITCH_END, _) =>
             Ok(Address::DipSwitchRegister),
 
-        (WATCHDOG_START...WATCHDOG_END, true) =>
+        (WATCHDOG_START...WATCHDOG_END, _) =>
             Ok(Address::WatchdogTimerReset),
 
         (_, _) => Err("Could not map address")
