@@ -56,11 +56,10 @@ impl Z80 {
 
     fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput, ext: bool) -> usize {
         let n: u8 = memory.read_byte(self.reg.pc + 1);
-        let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
-                      (memory.read_byte(self.reg.pc + 2) as u16);
+        let nn: u16 = memory.read_word(self.reg.pc + 1);
         let d: i8 = n as i8;
         
-        println!("{:x}", opcode);
+        println!("{:x}", nn);
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
@@ -583,8 +582,7 @@ impl Z80 {
 
     // runs an ED prefixed opcode
     fn run_ed_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput) -> usize {
-        let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
-                      (memory.read_byte(self.reg.pc + 2) as u16);
+        let nn: u16 = memory.read_word(self.reg.pc + 1);
 
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;

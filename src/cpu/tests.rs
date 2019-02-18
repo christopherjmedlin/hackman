@@ -226,8 +226,8 @@ fn test_16bit_ld() {
     cpu.reg.write_hl(0x1337);
     memory.ram[0] = 0xED;
     memory.ram[1] = 0x63;
-    memory.ram[2] = 0x00;
-    memory.ram[3] = 0x20;
+    memory.ram[2] = 0x20;
+    memory.ram[3] = 0x00;
     cpu.run_opcode(memory.read_byte(0), &mut memory, &mut io, false);
     assert_eq!(memory.read_word(0x0020), 0x1337);
 }
@@ -252,7 +252,7 @@ fn test_interrupt() {
     let mut memory = TestMemory::new();
     let mut io = TestIO::new();
     
-    memory.ram[771] = 0x09;
+    memory.ram[770] = 0x09;
     cpu.interrupt(2);
     cpu.reg.i = 3;
     cpu.reg.sp = 100;;
@@ -288,8 +288,8 @@ fn test_ix_operations() {
 
     memory.ram[0] = 0xDD;
     memory.ram[1] = 0x21;
-    memory.ram[2] = 0x13;
-    memory.ram[3] = 0x37;
+    memory.ram[2] = 0x37;
+    memory.ram[3] = 0x13;
     memory.ram[4] = 0xDD;
     memory.ram[5] = 0x39;
     memory.ram[6] = 0x21;
