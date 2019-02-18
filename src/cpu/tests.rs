@@ -52,7 +52,8 @@ fn test_16bit_inc_dec() {
     let mut cpu = Z80::new();
     let mut mem = TestMemory::new();
     let mut io = TestIO::new();
-
+    
+    cpu.reg.sp = 0;
     cpu.run_opcode(0x33, &mut mem, &mut io, false);
     assert_eq!(cpu.reg.sp, 1);
     cpu.run_opcode(0x3B, &mut mem, &mut io, false);

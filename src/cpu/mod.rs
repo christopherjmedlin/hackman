@@ -20,7 +20,7 @@ pub struct Z80 {
 
 impl Z80 {
     pub fn new() -> Self {
-        Z80 {
+        let mut cpu = Z80 {
             reg: Registers::new(),
             altreg: Registers::new(),
 
@@ -29,7 +29,9 @@ impl Z80 {
             interrupt: false,
             interrupt_data: 0,
             interrupt_mode: 0
-        }
+        };
+        cpu.reg.sp = 0x4FEF;
+        cpu
     }
 
     pub fn interrupt(&mut self, data: u8) {
@@ -57,7 +59,8 @@ impl Z80 {
         let nn: u16 = (memory.read_byte(self.reg.pc + 1) as u16) << 8 | 
                       (memory.read_byte(self.reg.pc + 2) as u16);
         let d: i8 = n as i8;
-
+        
+        println!("{:x}", opcode);
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
@@ -210,7 +213,7 @@ impl Z80 {
             // LD r[y], n
             (0, _, 6) => {
                 self.write_r(y, n, memory);
-                self.inc_pc();
+                self.reg.pc += 2;
                 7
             },
             // RLCA
@@ -283,6 +286,7 @@ impl Z80 {
                 // inverse C
                 let inverse_c = !self.reg.read_flag(0);
                 self.reg.set_flag(0, inverse_c);
+                self.inc_pc();
                 4
             },
             // HALT
@@ -294,6 +298,7 @@ impl Z80 {
             (1, _, _) => {
                 let temp = self.r(z, memory);
                 self.write_r(y, temp, memory);
+                self.inc_pc();
                 4
             },
             // alu[y] r[z]
