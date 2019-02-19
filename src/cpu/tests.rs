@@ -20,9 +20,9 @@ fn test_run_opcodes() {
 fn test_jr() {
     let mut cpu = Z80::new();
     cpu.jr(5);
-    assert_eq!(cpu.reg.pc, 5);
+    assert_eq!(cpu.reg.pc, 7);
     cpu.jr(-3);
-    assert_eq!(cpu.reg.pc, 2);
+    assert_eq!(cpu.reg.pc, 6);
     
     let mut mem = TestMemory::new();
     let mut io = TestIO::new();
