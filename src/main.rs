@@ -24,5 +24,10 @@ fn main() {
 
     let rom = Box::new(Roms::load(&directory));
     let mut pacman = PacmanSystem::new(&rom);
-    pacman.start();
+
+    if args.contains(&String::from("--debug")) {
+        pacman.debug();
+    } else {
+        pacman.start();
+    }
 }

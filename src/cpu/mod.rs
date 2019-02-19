@@ -2,6 +2,8 @@ mod reg;
 pub mod mem;
 pub mod io;
 
+use std::fmt;
+
 use cpu::reg::Registers;
 use cpu::mem::Memory;
 use cpu::io::InputOutput;
@@ -53,13 +55,17 @@ impl Z80 {
 
         cycles
     }
+    
+    // mostly for debugging purposes
+    pub fn get_pc(&mut self) -> u16 {
+        return self.reg.pc;
+    }
 
     fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput, ext: bool) -> usize {
         let n: u8 = memory.read_byte(self.reg.pc + 1);
         let nn: u16 = memory.read_word(self.reg.pc + 1);
         let d: i8 = n as i8;
         
-        println!("{:x}", opcode);
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
@@ -92,11 +98,13 @@ impl Z80 {
             },
             // DJNZ d
             (0, 2, 0) => {
-                self.reg.b -= 1;
+                if self.reg.b > 0 {
+                println!("uhhh");self.reg.b -= 1;}
                 if self.reg.b > 0 {
                     self.jr(d);
                     13
                 } else {
+                    self.reg.pc += 2;
                     8
                 }
             },
@@ -107,10 +115,12 @@ impl Z80 {
             },
             // JR cc[y-4], d
             (0, 4...7, 0) => {
+                println!("{}", self.reg.cc((y - 4) as usize));
                 if self.reg.cc((y - 4) as usize) {
                     self.jr(d);
                     return 12;
                 }
+                else {self.reg.pc += 2;}
                 7
             },
             (0, _, 1) => {
@@ -1161,12 +1171,14 @@ impl Z80 {
     
     // adds d to pc
     fn jr(&mut self, d: i8) {
-        let result = self.reg.pc as i8 + d;
+        println!("{}", d);
+        let result = self.reg.pc as i16 + d as i16;
         if result < 0 {
             self.reg.pc = 0;
         } else {
             self.reg.pc = result as u16;
         }
+        self.reg.pc += 2;
     }
     
     // used for simplifying RLCA, RLA, RRCA, RRA instructions
@@ -1238,6 +1250,7 @@ impl Z80 {
         let val = self.reg.read_8bit_r(y);
         let result = val.wrapping_add(1);
         
+        println!("{}", result);
         self.reg.set_flag(1, false);
         self.reg.set_flag(6, result == 0);
         self.reg.set_flag(7, result > 127);
@@ -1264,7 +1277,7 @@ impl Z80 {
     // increments stack pointer
     fn pop_stack(&mut self, mem: &mut Memory) -> u8 {
         let byte = mem.read_byte(self.reg.sp);
-        self.reg.sp -= 1;
+        self.reg.sp += 1;
         byte
     }
 
@@ -1331,6 +1344,12 @@ impl Z80 {
             if num & 1 != 0 {number_of_ones += 1};
             num >>= 1;
         }
+    }
+}
+
+impl fmt::Debug for Z80 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.reg)
     }
 }
 

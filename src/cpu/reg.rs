@@ -1,3 +1,5 @@
+use std::fmt;
+
 pub struct Registers {
     pub b: u8,
     pub c: u8,
@@ -141,15 +143,15 @@ impl Registers {
         }
     }
 
-    pub fn bc(&mut self) -> u16 {
+    pub fn bc(&self) -> u16 {
         (self.b as u16) << 8 | (self.c as u16)
     }
 
-    pub fn de(&mut self) -> u16 {
+    pub fn de(&self) -> u16 {
         (self.d as u16) << 8 | (self.e as u16)
     }
 
-    pub fn hl(&mut self) -> u16 {
+    pub fn hl(&self) -> u16 {
         if self.ix_patched {
              (self.ixh as u16) << 8 | (self.ixl as u16)
         } else if self.iy_patched {
@@ -159,7 +161,7 @@ impl Registers {
         }
     }
 
-    pub fn af(&mut self) -> u16 {
+    pub fn af(&self) -> u16 {
         (self.a as u16) << 8 | (self.f as u16)
     }
 
@@ -224,6 +226,22 @@ impl Registers {
 
     pub fn patch_iy(&mut self, patch: bool) {
         self.iy_patched = patch;
+    }
+}
+
+impl fmt::Debug for Registers {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "pc: 0x{:x}\n\
+                   a: 0x{:x}, f: 0x{:x}, b: 0x{:x}, c: 0x{:x}\n\
+                   d: 0x{:x}, e: 0x{:x}, h: 0x{:x}, l: 0x{:x}\n\n\
+                   af: 0x{:x}, bc: 0x{:x}, de: 0x{:x}, hl: 0x{:x}, sp: {:x}\n\
+                   ixh: 0x{:x}, ixl: 0x{:x}, iyh: 0x{:x}, iyl: 0x{:x}\n\
+                   i: 0x{:x}, r: {:x}",
+
+               self.pc, 
+               self.a, self.f, self.b, self.c, self.d, self.e, self.h, self.l, 
+               self.af(), self.bc(), self.de(), self.hl(), self.sp,
+               self.ixh, self.ixl, self.iyh, self.iyl, self.i, self.r)
     }
 }
 
