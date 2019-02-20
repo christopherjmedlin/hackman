@@ -31,12 +31,37 @@ impl<'a> PacmanSystem<'a> {
 
     pub fn debug(&mut self) {
         let mut input = String::new();
+        // break at the beginning
+        let mut break_point: u16 = 0;
+        let mut step = false;
+
         while true {
             let pc = self.cpu.get_pc();
-            println!("opcode: {:x}", self.memory.read_byte(pc));
-            println!("{:?}", self.cpu);
+            
+            if step || pc == break_point {
+                io::stdin().read_line(&mut input);
+                let split: Vec<&str> = input.split(" ").collect();
+                match split.get(0) {
+                    Some(result) => {
+                        println!("{}", *result);
+                        match *result {
+                            "b" | "break" => {
+                                break_point = match split.get(1) {
+                                    Some(addr) => {addr.parse().unwrap()},
+                                    None => {0}
+                                }
+                            },
+                            "s" | "step" => {println!("asdf");step = true;},
+                            &_ => {println!("Invalid command");}
+                        }
+                    },
+                    None => {}
+                }
+                println!("opcode: {:x}", self.memory.read_byte(pc));
+                println!("{:?}", self.cpu);
+            }
+
             self.cpu.run_opcodes(1, &mut self.memory, &mut self.io);
-            io::stdin().read_line(&mut input);
         }
     }
 }

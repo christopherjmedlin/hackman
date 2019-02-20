@@ -76,7 +76,6 @@ impl Z80 {
                     _ => {
                         self.interrupt = false;
                         let addr = memory.read_word((self.reg.i as u16 * 256) + self.interrupt_data as u16);
-                        println!("{}", 1);
                         // push pc onto stack
                         let pc = self.reg.pc;
                         self.push_stack_16(memory, pc);
@@ -98,8 +97,7 @@ impl Z80 {
             },
             // DJNZ d
             (0, 2, 0) => {
-                if self.reg.b > 0 {
-                println!("uhhh");self.reg.b -= 1;}
+                if self.reg.b > 0 {self.reg.b -= 1;}
                 if self.reg.b > 0 {
                     self.jr(d);
                     13
@@ -115,7 +113,6 @@ impl Z80 {
             },
             // JR cc[y-4], d
             (0, 4...7, 0) => {
-                println!("{}", self.reg.cc((y - 4) as usize));
                 if self.reg.cc((y - 4) as usize) {
                     self.jr(d);
                     return 12;
@@ -1171,7 +1168,6 @@ impl Z80 {
     
     // adds d to pc
     fn jr(&mut self, d: i8) {
-        println!("{}", d);
         let result = self.reg.pc as i16 + d as i16;
         if result < 0 {
             self.reg.pc = 0;
@@ -1250,7 +1246,6 @@ impl Z80 {
         let val = self.reg.read_8bit_r(y);
         let result = val.wrapping_add(1);
         
-        println!("{}", result);
         self.reg.set_flag(1, false);
         self.reg.set_flag(6, result == 0);
         self.reg.set_flag(7, result > 127);

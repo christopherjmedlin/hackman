@@ -2,23 +2,38 @@ use std::path::Path;
 use std::fs::File;
 use std::io::Read;
 
-const ROM_FILE_NAMES: [&str; 10] = [
+const GAME_ROM_FILE_NAMES: [&str; 4] = [
     "pacman.6e",
     "pacman.6f",
     "pacman.6h",
     "pacman.6j",
-    "82s123.7f",
-    "82s126.4a",
-    "pacman.5e",
-    "pacman.5f",
-    "82s126.1m",
-    "82s126.3m"
 ];
+const COLOR_ROM_FILE_NAME: &str = "82s123.7f";
+const PALETTE_ROM_FILE_NAME: &str = "82s126.4a";
+const TILE_ROM_FILE_NAME: &str = "pacman.5e";
+
+#[derive(Copy, Clone)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8
+}
+
+#[derive(Copy, Clone)]
+pub struct Tile {
+    pub pixels: [[u8; 8]; 8]
+}
+
+#[derive(Copy, Clone)]
+pub struct Sprite {
+    pub pixels: [[u8; 16]; 16]
+}
 
 pub struct Roms {
     pub game_roms: [[u8; 4096]; 4],
-    pub color_rom: [u8; 32],
-    pub palette_rom: [u8; 256],
+    pub color_rom: [Color; 32],
+    // usize because palettes just contain indices into the color_rom
+    pub palette_rom: [[usize; 4]; 64],
     pub tile_rom: [u8; 4096],
     pub sprite_rom: [u8; 4096],
     pub sound_roms: [[u8; 256]; 2],
@@ -28,8 +43,8 @@ impl Roms {
     pub fn new() -> Self {
         Roms {
             game_roms: [[0; 4096]; 4],
-            color_rom: [0; 32],
-            palette_rom: [0; 256],
+            color_rom: [Color {r: 0, g: 0, b: 0}; 32],
+            palette_rom: [[0; 4]; 64],
             tile_rom: [0; 4096],
             sprite_rom: [0; 4096],
             sound_roms: [[0; 256]; 2]
@@ -39,35 +54,69 @@ impl Roms {
     pub fn load(directory: &Path) -> Self {
         let mut roms = Roms::new();
 
-        for file_name in ROM_FILE_NAMES.iter() {
-            let path = directory.join(file_name);
+        roms.load_game_roms(directory);
+        roms.load_color_rom(directory);
+        roms.load_palette_rom(directory);
+        roms.load_tile_rom(directory);
+        roms
+    }
 
-            let mut file = match File::open(&path) {
-                Err(why) => panic!("Missing ROMs"),
-                Ok(file) => file,
-            };
-            
-            let buf: &mut [u8];
+    fn load_game_roms(&mut self, directory: &Path) {
+        for file_name in GAME_ROM_FILE_NAMES.iter() {
+            let path = directory.join(file_name);
+            let mut buf: &mut [u8];
             buf = match *file_name {
-                "pacman.6e" => &mut roms.game_roms[0],
-                "pacman.6f" => &mut roms.game_roms[1],
-                "pacman.6h" => &mut roms.game_roms[2],
-                "pacman.6j" => &mut roms.game_roms[3],
-                "82s123.7f" => &mut roms.color_rom,
-                "82s126.4a" => &mut roms.palette_rom,
-                "pacman.5e" => &mut roms.tile_rom,
-                "pacman.5f" => &mut roms.sprite_rom,
-                "82s126.1m" => &mut roms.sound_roms[0],
-                "82s126.3m" => &mut roms.sound_roms[1],
+                "pacman.6e" => &mut self.game_roms[0],
+                "pacman.6f" => &mut self.game_roms[1],
+                "pacman.6h" => &mut self.game_roms[2],
+                "pacman.6j" => &mut self.game_roms[3],
                 _ => panic!("Internal error")
             };
+            Roms::load_file(&path, &mut buf);
+        };
+    }
 
-            match file.read(buf) {
+    fn load_color_rom(&mut self, directory: &Path) {
+        let mut bytes: [u8; 32] = [0; 32];
+        Roms::load_file(&directory.join(COLOR_ROM_FILE_NAME), &mut bytes);
+
+        for (i, byte) in bytes.iter().enumerate() {
+            let mut color = &mut self.color_rom[i];
+            if (byte & 1) != 0 {color.r += 0x21}
+            if (byte & 1 << 1) != 0 {color.r += 0x47}
+            if (byte & 1 << 2) != 0 {color.r += 0x97}
+            if (byte & 1 << 3) != 0 {color.g += 0x21}
+            if (byte & 1 << 4) != 0 {color.g += 0x47}
+            if (byte & 1 << 5) != 0 {color.g += 0x97}
+            if (byte & 1 << 6) != 0 {color.b += 0x51}
+            if (byte & 1 << 7) != 0 {color.b += 0xAE}
+        }
+    }
+
+    fn load_palette_rom(&mut self, directory: &Path) {
+        let mut bytes: [u8; 256] = [0; 256];
+        Roms::load_file(&directory.join(PALETTE_ROM_FILE_NAME), &mut bytes);
+
+        for (i, byte) in bytes.iter().enumerate() {
+            self.palette_rom[i/4][i%4] = *byte as usize;
+            let color = self.color_rom[*byte as usize];
+        }
+    }
+
+    fn load_tile_rom(&mut self, directory: &Path) {
+        let mut bytes: [u8; 4096] = [0; 4096];
+        Roms::load_file(&directory.join(TILE_ROM_FILE_NAME), &mut bytes);
+    
+    }
+
+    fn load_file(path: &Path, buffer: &mut [u8]) {
+        let mut file = match File::open(&path) {
+            Err(why) => panic!("Missing ROMs"),
+            Ok(file) => file,
+        };
+        match file.read(buffer) {
                 Ok(_) => {},
                 Err(why) => panic!("Error reading ROM")
-            }
-        }
-
-        roms
+        };
     }
 }
