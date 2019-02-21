@@ -7,6 +7,7 @@ mod display;
 
 #[macro_use(matches)]
 extern crate matches;
+extern crate sdl2;
 
 use std::env;
 use std::path::Path;

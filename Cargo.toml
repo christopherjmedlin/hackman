@@ -5,3 +5,4 @@ authors = ["Christopher Medlin <christopherjmedlin@gmail.com>"]
 
 [dependencies]
 matches = "0.1.8"
+sdl2 = "0.31.0"
