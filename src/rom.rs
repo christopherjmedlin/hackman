@@ -19,22 +19,12 @@ pub struct Color {
     pub b: u8
 }
 
-#[derive(Copy, Clone)]
-pub struct Tile {
-    pub pixels: [[u8; 8]; 8]
-}
-
-#[derive(Copy, Clone)]
-pub struct Sprite {
-    pub pixels: [[u8; 16]; 16]
-}
-
 pub struct Roms {
     pub game_roms: [[u8; 4096]; 4],
     pub color_rom: [Color; 32],
     // usize because palettes just contain indices into the color_rom
     pub palette_rom: [[usize; 4]; 64],
-    pub tile_rom: [u8; 4096],
+    pub tile_rom: [u8; 16384],
     pub sprite_rom: [u8; 4096],
     pub sound_roms: [[u8; 256]; 2],
 }
@@ -45,7 +35,7 @@ impl Roms {
             game_roms: [[0; 4096]; 4],
             color_rom: [Color {r: 0, g: 0, b: 0}; 32],
             palette_rom: [[0; 4]; 64],
-            tile_rom: [0; 4096],
+            tile_rom: [0; 16384],
             sprite_rom: [0; 4096],
             sound_roms: [[0; 256]; 2]
         }
@@ -102,11 +92,19 @@ impl Roms {
             let color = self.color_rom[*byte as usize];
         }
     }
-
+    
+    // decodes the bit planes
     fn load_tile_rom(&mut self, directory: &Path) {
         let mut bytes: [u8; 4096] = [0; 4096];
         Roms::load_file(&directory.join(TILE_ROM_FILE_NAME), &mut bytes);
-    
+        
+        for (i, byte) in bytes.iter().enumerate() {
+            for bit in 0..4 {
+                let lsb = (byte & 1 << bit) >> bit;
+                let msb = (byte & 1 << (bit + 4)) >> (bit + 3);
+                self.tile_rom[i * 4 + bit] = lsb | msb;
+            }
+        }
     }
 
     fn load_file(path: &Path, buffer: &mut [u8]) {
