@@ -1,4 +1,5 @@
 use rom::Roms;
+use display::Display;
 use cpu::Z80;
 use cpu::io::TestIO;
 use cpu::mem::Memory;
@@ -10,7 +11,8 @@ pub struct PacmanSystem<'a> {
     cpu: Z80,
     memory: MemoryMapper<'a>,
     // just for now
-    io: TestIO
+    io: TestIO,
+    display: Display<'a>,
 }
 
 impl<'a> PacmanSystem<'a> {
@@ -19,7 +21,8 @@ impl<'a> PacmanSystem<'a> {
             roms: roms,
             cpu: Z80::new(),
             memory: MemoryMapper::new(roms),
-            io: TestIO::new()
+            io: TestIO::new(),
+            display: Display::new(roms),
         }
     }
 
