@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::fs::File;
 use std::io::Read;
+use sdl2::pixels::Color;
 
 const GAME_ROM_FILE_NAMES: [&str; 4] = [
     "pacman.6e",
@@ -11,13 +12,6 @@ const GAME_ROM_FILE_NAMES: [&str; 4] = [
 const COLOR_ROM_FILE_NAME: &str = "82s123.7f";
 const PALETTE_ROM_FILE_NAME: &str = "82s126.4a";
 const TILE_ROM_FILE_NAME: &str = "pacman.5e";
-
-#[derive(Copy, Clone)]
-pub struct Color {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8
-}
 
 pub struct Roms {
     pub game_roms: [[u8; 4096]; 4],
@@ -33,7 +27,7 @@ impl Roms {
     pub fn new() -> Self {
         Roms {
             game_roms: [[0; 4096]; 4],
-            color_rom: [Color {r: 0, g: 0, b: 0}; 32],
+            color_rom: [Color {r: 0, g: 0, b: 0, a: 0}; 32],
             palette_rom: [[0; 4]; 64],
             tile_rom: [0; 16384],
             sprite_rom: [0; 4096],

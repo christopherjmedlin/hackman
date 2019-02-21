@@ -47,7 +47,9 @@ impl<'a> PacmanSystem<'a> {
         let mut canvas = window.into_canvas().build().unwrap();
 
         'main: loop {
-            self.display.draw_tile(0, 0, 0);
+            self.display.draw_tile(0, 0, 1, 1);
+            self.display.draw_tile(1, 0, 145, 15);
+            self.display.draw_tile(1, 1, 147, 15);
             canvas.clear();
             self.display.show(&mut canvas);
             canvas.present();
