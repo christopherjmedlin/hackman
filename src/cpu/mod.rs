@@ -37,6 +37,7 @@ impl Z80 {
     }
 
     pub fn interrupt(&mut self, data: u8) {
+        self.halted = false;
         self.interrupt = true;
         self.interrupt_data = data;
     }
@@ -44,7 +45,7 @@ impl Z80 {
     /// Runs a specified number of opcodes
     pub fn run_opcodes(&mut self, iters: usize, memory: &mut Memory, io: &mut InputOutput) -> usize {
         if self.halted {
-            return 0;
+            return 4;
         }
         
         let mut cycles = 0;
@@ -61,21 +62,16 @@ impl Z80 {
         return self.reg.pc;
     }
 
-    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput, ext: bool) -> usize {
-        let n: u8 = memory.read_byte(self.reg.pc + 1);
-        let nn: u16 = memory.read_word(self.reg.pc + 1);
-        let d: i8 = n as i8;
-        
-        let x: u8 = opcode >> 6;
-        let y: u8 = (opcode & 0b00111000) >> 3;
-        let z: u8 = opcode & 0b00000111;
-        
+    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput, ext: bool) -> usize {       
         if self.interrupts_enabled {
             if self.interrupt {
                 match self.interrupt_mode {
                     _ => {
                         self.interrupt = false;
-                        let addr = memory.read_word((self.reg.i as u16 * 256) + self.interrupt_data as u16);
+                        let addr = memory.read_word(((self.reg.i as u16) << 8) | self.interrupt_data as u16);
+                        println!("{:x}", ((self.reg.i as u16) << 8) | self.interrupt_data as u16);
+                        println!("sdf{:x}", addr);
+
                         // push pc onto stack
                         let pc = self.reg.pc;
                         self.push_stack_16(memory, pc);
@@ -84,6 +80,15 @@ impl Z80 {
                 }
             }
         }
+        
+        let n: u8 = memory.read_byte(self.reg.pc + 1);
+        let nn: u16 = memory.read_word(self.reg.pc + 1);
+        println!("{:x}, {:x}", self.reg.pc, nn);
+        let d: i8 = n as i8;
+        
+        let x: u8 = opcode >> 6;
+        let y: u8 = (opcode & 0b00111000) >> 3;
+        let z: u8 = opcode & 0b00000111;
 
         match (x, y, z) {
             // NOP
@@ -136,6 +141,7 @@ impl Z80 {
                 }
                 // LD rp[p], nn
                 else {
+                    println!("{:x}, {:x}", self.reg.pc, nn);
                     self.reg.write_16bit_r(p, true, nn);
                     self.reg.pc += 3;
                     10
@@ -298,6 +304,7 @@ impl Z80 {
             // HALT
             (1, 6, 6) => {
                 self.halted = true;
+                self.inc_pc();
                 4
             },
             // LD r[y], r[z]
@@ -703,12 +710,14 @@ impl Z80 {
                     1 | 5 | 2 | 6 => 1,
                     _ => 2
                 };
+                self.inc_pc();
                 8
             },
             // LD I, A
             (1, 0, 7) => {
                 self.reg.i = self.reg.a;
                 self.inc_pc();
+                println!("{:x}", self.reg.i);
                 9
             },
             // LD R, A
