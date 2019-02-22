@@ -4,6 +4,7 @@ mod memory_mapper;
 mod cpu;
 mod pacman;
 mod display;
+mod interrupt_vector;
 
 #[macro_use(matches)]
 extern crate matches;
