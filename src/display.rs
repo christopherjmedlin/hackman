@@ -23,8 +23,21 @@ impl<'a> Display<'a> {
         y *= 8;
         let slice_index = tile * 64;
 
-        self.draw_slice(x, y + 4, slice_index, palette, false);
-        self.draw_slice(x, y, slice_index + 32, palette, false);
+        self.draw_slice(x, y + 4, slice_index, palette, false, false, false);
+        self.draw_slice(x, y, slice_index + 32, palette, false, false, false);
+    }
+    
+    pub fn draw_sprite(&mut self, x: usize, y: usize, sprite: usize, palette: usize) {
+        let slice_index = sprite * 256;
+
+        self.draw_slice(x + 8, y + 12, slice_index, palette, true, false, false);
+        self.draw_slice(x + 8, y, slice_index + 32, palette, true, false, false);
+        self.draw_slice(x + 8, y + 4, slice_index + 64, palette, true, false, false);
+        self.draw_slice(x + 8, y + 8, slice_index + 96, palette, true, false, false);
+        self.draw_slice(x, y + 12, slice_index + 128, palette, true, false, false);
+        self.draw_slice(x, y, slice_index + 160, palette, true, false, false);
+        self.draw_slice(x, y + 4, slice_index + 192, palette, true, false, false);
+        self.draw_slice(x, y + 8, slice_index + 224, palette, true, false, false);
     }
 
     pub fn show(&self, canvas: &mut Canvas<Window>) {
@@ -39,9 +52,10 @@ impl<'a> Display<'a> {
     }
     
     // draws an 8x4 slice of pixels. if sprite is true, it use sprite rom, tile rom otherwise
-    fn draw_slice(&mut self, x: usize, y: usize, mut index: usize, palette: usize, sprite: bool) {
-        let video_rom = & if sprite {self.roms.tile_rom} else {self.roms.tile_rom};
+    fn draw_slice(&mut self, x: usize, y: usize, mut index: usize, palette: usize, sprite: bool, x_flip: bool, y_flip: bool) {
+        let video_rom = & if sprite {self.roms.sprite_rom} else {self.roms.tile_rom};
         let palette = &self.roms.palette_rom[palette];
+        
         for x_offset in (0..8).rev() {
             for y_offset in (0..4).rev() {
                 let color_index = palette[video_rom[index] as usize];
