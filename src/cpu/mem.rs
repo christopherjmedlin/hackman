@@ -1,5 +1,4 @@
 pub trait Memory {
-    
     /// Read a byte from memory at address <addr>
     fn read_byte(&self, addr: u16) -> u8;
 
@@ -20,14 +19,12 @@ pub trait Memory {
 
 /// An implementation of Memory trait for testing purposes
 pub struct TestMemory {
-    pub ram: [u8; 0x50FF]
+    pub ram: [u8; 0x50FF],
 }
 
 impl TestMemory {
     pub fn new() -> Self {
-        TestMemory {
-            ram: [0; 0x50FF]
-        }
+        TestMemory { ram: [0; 0x50FF] }
     }
 }
 

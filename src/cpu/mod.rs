@@ -1,12 +1,12 @@
-mod reg;
-pub mod mem;
 pub mod io;
+pub mod mem;
+mod reg;
 
 use std::fmt;
 
-use cpu::reg::Registers;
-use cpu::mem::Memory;
 use cpu::io::InputOutput;
+use cpu::mem::Memory;
+use cpu::reg::Registers;
 
 // TODO make IO into a trait
 pub struct Z80 {
@@ -30,7 +30,7 @@ impl Z80 {
             interrupts_enabled: true,
             interrupt: false,
             interrupt_data: 0,
-            interrupt_mode: 0
+            interrupt_mode: 0,
         };
         cpu.reg.sp = 0x4FEF;
         cpu
@@ -41,13 +41,18 @@ impl Z80 {
         self.interrupt = true;
         self.interrupt_data = data;
     }
-    
+
     /// Runs a specified number of opcodes
-    pub fn run_opcodes(&mut self, iters: usize, memory: &mut Memory, io: &mut InputOutput) -> usize {
+    pub fn run_opcodes(
+        &mut self,
+        iters: usize,
+        memory: &mut Memory,
+        io: &mut InputOutput,
+    ) -> usize {
         if self.halted {
             return 4;
         }
-        
+
         let mut cycles = 0;
         for i in 0..iters {
             let opcode = memory.read_byte(self.reg.pc);
@@ -56,21 +61,26 @@ impl Z80 {
 
         cycles
     }
-    
+
     // mostly for debugging purposes
     pub fn get_pc(&mut self) -> u16 {
         return self.reg.pc;
     }
 
-    fn run_opcode(&mut self, opcode: u8, memory: &mut Memory, io: &mut InputOutput, ext: bool) -> usize {       
+    fn run_opcode(
+        &mut self,
+        opcode: u8,
+        memory: &mut Memory,
+        io: &mut InputOutput,
+        ext: bool,
+    ) -> usize {
         if self.interrupts_enabled {
             if self.interrupt {
                 match self.interrupt_mode {
                     _ => {
                         self.interrupt = false;
-                        let addr = memory.read_word(((self.reg.i as u16) << 8) | self.interrupt_data as u16);
-                        println!("{:x}", ((self.reg.i as u16) << 8) | self.interrupt_data as u16);
-                        println!("sdf{:x}", addr);
+                        let addr = memory
+                            .read_word(((self.reg.i as u16) << 8) | self.interrupt_data as u16);
 
                         // push pc onto stack
                         let pc = self.reg.pc;
@@ -80,29 +90,33 @@ impl Z80 {
                 }
             }
         }
-        
+
         let n: u8 = memory.read_byte(self.reg.pc + 1);
         let nn: u16 = memory.read_word(self.reg.pc + 1);
-        println!("{:x}, {:x}", self.reg.pc, nn);
         let d: i8 = n as i8;
-        
+
         let x: u8 = opcode >> 6;
         let y: u8 = (opcode & 0b00111000) >> 3;
         let z: u8 = opcode & 0b00000111;
 
         match (x, y, z) {
             // NOP
-            (0, 0, 0) => {self.inc_pc(); 4},
+            (0, 0, 0) => {
+                self.inc_pc();
+                4
+            }
             // EX AF, AF'
             (0, 1, 0) => {
                 let temp = self.altreg.af();
                 self.altreg.write_af(self.reg.af());
                 self.reg.write_af(temp);
                 4
-            },
+            }
             // DJNZ d
             (0, 2, 0) => {
-                if self.reg.b > 0 {self.reg.b -= 1;}
+                if self.reg.b > 0 {
+                    self.reg.b -= 1;
+                }
                 if self.reg.b > 0 {
                     self.jr(d);
                     13
@@ -110,31 +124,29 @@ impl Z80 {
                     self.reg.pc += 2;
                     8
                 }
-            },
+            }
             // JR d
             (0, 3, 0) => {
                 self.jr(d);
                 12
-            },
+            }
             // JR cc[y-4], d
             (0, 4...7, 0) => {
                 if self.reg.cc((y - 4) as usize) {
                     self.jr(d);
                     return 12;
+                } else {
+                    self.reg.pc += 2;
                 }
-                else {self.reg.pc += 2;}
                 7
-            },
+            }
             (0, _, 1) => {
                 let q = (y & 1) != 0;
                 let p: u8 = y >> 1;
-                
+
                 // ADD HL, rp[p]
                 if q {
-
-                    let result = self.reg.hl().wrapping_add(
-                        self.reg.read_16bit_r(p, true)
-                    );
+                    let result = self.reg.hl().wrapping_add(self.reg.read_16bit_r(p, true));
                     self.reg.write_hl(result);
                     self.inc_pc();
                     11
@@ -150,7 +162,7 @@ impl Z80 {
             (0, _, 2) => {
                 let q = (y & 1) != 0;
                 let p: u8 = y >> 1;
-                
+
                 if q {
                     match p {
                         // LD A, (BC)
@@ -158,13 +170,13 @@ impl Z80 {
                             self.reg.a = memory.read_byte(self.reg.bc());
                             self.inc_pc();
                             7
-                        },
+                        }
                         // LD A, (DE)
                         1 => {
                             self.reg.a = memory.read_byte(self.reg.de());
                             self.inc_pc();
                             7
-                        },
+                        }
                         // LD HL, (nn)
                         2 => {
                             self.reg.write_hl(memory.read_word(nn));
@@ -176,8 +188,11 @@ impl Z80 {
                             self.reg.a = memory.read_byte(nn);
                             self.reg.pc += 3;
                             13
-                        },
-                        _ => {self.inc_pc(); 4}
+                        }
+                        _ => {
+                            self.inc_pc();
+                            4
+                        }
                     }
                 } else {
                     match p {
@@ -186,76 +201,91 @@ impl Z80 {
                             memory.write_byte(self.reg.a, self.reg.bc());
                             self.inc_pc();
                             7
-                        },
+                        }
                         // LD (DE), A
                         1 => {
                             memory.write_byte(self.reg.a, self.reg.de());
                             self.inc_pc();
                             7
-                        },
+                        }
                         // LD (nn), HL
                         2 => {
                             memory.write_word(self.reg.hl(), nn);
                             self.reg.pc += 3;
                             16
-                        },
+                        }
                         // LD (nn), A
                         3 => {
                             memory.write_byte(self.reg.a, nn);
                             self.reg.pc += 3;
                             13
-                        },
-                        _ => {self.inc_pc(); 4}
+                        }
+                        _ => {
+                            self.inc_pc();
+                            4
+                        }
                     }
                 }
-            },
+            }
             (0, _, 3) => {
                 let q = (y & 1) != 0;
                 let p: u8 = y >> 1;
-                
+
                 // DEC rp[p]
-                if q {self.dec_16(p); 6}
+                if q {
+                    self.dec_16(p);
+                    6
+                }
                 // INC rp[p]
-                else {self.inc_16(p); 6}
-            },
+                else {
+                    self.inc_16(p);
+                    6
+                }
+            }
             // INC r[y]
-            (0, _, 4) => {self.inc_8(y, memory); 4},
+            (0, _, 4) => {
+                self.inc_8(y, memory);
+                4
+            }
             // DEC r[y]
-            (0, _, 5) => {self.dec_8(y, memory); 4},
+            (0, _, 5) => {
+                self.dec_8(y, memory);
+                4
+            }
             // LD r[y], n
             (0, _, 6) => {
                 self.write_r(y, n, memory);
                 self.reg.pc += 2;
                 7
-            },
+            }
             // RLCA
             (0, 0, 7) => {
                 let val = self.reg.a;
                 self.reg.a = self.rot(0, val);
                 self.inc_pc();
                 4
-            },
+            }
             // RRCA
             (0, 1, 7) => {
                 let val = self.reg.a;
                 self.reg.a = self.rot(1, val);
                 self.inc_pc();
                 4
-            },
+            }
             // RLA
             (0, 2, 7) => {
                 let val = self.reg.a;
                 self.reg.a = self.rot(2, val);
                 self.inc_pc();
                 4
-            },
+            }
             // RRA
             (0, 3, 7) => {
                 let val = self.reg.a;
                 self.reg.a = self.rot(3, val);
                 self.inc_pc();
                 4
-            },
+            }
             // DAA
             (0, 4, 7) => {
                 if self.reg.a & 0xF0 > 9 || self.reg.read_flag(4) {
@@ -269,7 +299,7 @@ impl Z80 {
                 self.detect_parity(num);
                 self.inc_pc();
                 4
-            },
+            }
             // CPL
             (0, 5, 7) => {
                 self.reg.a = !self.reg.a;
@@ -278,7 +308,7 @@ impl Z80 {
                 self.reg.set_flag(1, true);
                 self.reg.set_flag(4, true);
                 4
-            },
+            }
             // SCF
             (0, 6, 7) => {
                 self.reg.set_flag(0, true);
@@ -287,7 +317,7 @@ impl Z80 {
                 self.reg.set_flag(1, false);
                 self.reg.set_flag(4, false);
                 4
-            },
+            }
             // CCF
             (0, 7, 7) => {
                 // set H to old C
@@ -300,26 +330,26 @@ impl Z80 {
                 self.reg.set_flag(0, inverse_c);
                 self.inc_pc();
                 4
-            },
+            }
             // HALT
             (1, 6, 6) => {
                 self.halted = true;
                 self.inc_pc();
                 4
-            },
+            }
             // LD r[y], r[z]
             (1, _, _) => {
                 let temp = self.r(z, memory);
                 self.write_r(y, temp, memory);
                 self.inc_pc();
                 4
-            },
+            }
             // alu[y] r[z]
             (2, _, _) => {
                 let val = self.r(z, memory);
                 self.alu(y, val);
                 4
-            },
+            }
             // RET cc[y]
             (3, _, 0) => {
                 if self.reg.cc(y as usize) {
@@ -329,7 +359,7 @@ impl Z80 {
                     self.inc_pc();
                     5
                 }
-            },
+            }
             (3, _, 1) => {
                 let q = ((y & 1) != 0) as u8;
                 let p: u8 = y >> 1;
@@ -341,12 +371,12 @@ impl Z80 {
                         self.reg.write_16bit_r(p, false, word);
                         self.inc_pc();
                         10
-                    },
+                    }
                     // RET
                     (0, 1) => {
                         self.ret(memory);
                         11
-                    },
+                    }
                     // EXX
                     (1, _) => {
                         let mut temp = self.altreg.bc();
@@ -360,51 +390,51 @@ impl Z80 {
                         self.reg.write_hl(temp);
                         self.inc_pc();
                         4
-                    },
+                    }
                     // JP HL
                     (2, _) => {
                         self.reg.pc = self.reg.hl();
                         4
-                    },
+                    }
                     // LD SP, HL
                     (3, _) => {
                         self.reg.sp = self.reg.hl();
                         self.inc_pc();
                         4
-                    },
-                    (_, _) => {4}
+                    }
+                    (_, _) => 4,
                 }
-            },
+            }
             // JP cc[y], nn
             (3, _, 2) => {
                 if self.reg.cc(y as usize) {
                     self.reg.pc = nn;
                 }
                 10
-            },
+            }
             // JP nn
             (3, 0, 3) => {
                 self.reg.pc = nn;
                 10
-            },
+            }
             // CB prefix
             (3, 1, 3) => {
                 self.inc_pc();
                 self.run_cb_opcode(memory, io, ext);
                 4
-            },
+            }
             // OUT (n), A
             (3, 2, 3) => {
                 io.output(n, self.reg.a);
                 self.inc_pc();
                 4
-            },
+            }
             // IN A, (n)
             (3, 3, 3) => {
                 self.reg.a = io.input(n);
                 self.inc_pc();
                 4
-            },
+            }
             // EX (SP), HL
             (3, 4, 3) => {
                 let mut temp = self.reg.l;
@@ -415,7 +445,7 @@ impl Z80 {
                 memory.write_byte(temp, self.reg.sp + 1);
                 self.inc_pc();
                 19
-            },
+            }
             // EX DE, HL
             (3, 5, 3) => {
                 let de = self.reg.de();
@@ -424,19 +454,19 @@ impl Z80 {
                 self.reg.write_hl(de);
                 self.inc_pc();
                 4
-            },
+            }
             // DI
             (3, 6, 3) => {
                 self.interrupts_enabled = false;
                 self.inc_pc();
                 4
-            },
+            }
             // EI
             (3, 7, 3) => {
                 self.interrupts_enabled = true;
                 self.inc_pc();
                 4
-            },
+            }
             // CALL cc[y], nn
             (3, _, 4) => {
                 if self.reg.cc(y as usize) {
@@ -457,12 +487,12 @@ impl Z80 {
                         self.push_stack_16(memory, word);
                         self.inc_pc();
                         11
-                    },
+                    }
                     // CALL nn
                     (0, 1) => {
                         self.call(memory, nn);
                         17
-                    },
+                    }
                     // DD prefix
                     (1, _) => {
                         self.inc_pc();
@@ -471,14 +501,14 @@ impl Z80 {
                         let cycles = self.run_opcode(opcode, memory, io, true);
                         self.reg.patch_ix(false);
                         cycles
-                    },
+                    }
                     // ED prefix
                     (2, _) => {
                         self.inc_pc();
                         let op = memory.read_byte(self.reg.pc);
                         self.run_ed_opcode(op, memory, io);
                         4
-                    },
+                    }
                     // FD prefix
                     (3, _) => {
                         self.inc_pc();
@@ -487,21 +517,21 @@ impl Z80 {
                         let cycles = self.run_opcode(opcode, memory, io, true);
                         self.reg.patch_iy(false);
                         cycles
-                    },
-                    (_, _) => {4}
+                    }
+                    (_, _) => 4,
                 }
-            },
+            }
             // alu[y] n
             (3, _, 6) => {
                 self.alu(y, n);
                 8
-            },
+            }
             // RST y*8
             (3, _, 7) => {
-                self.call(memory, (y*8) as u16);
+                self.call(memory, (y * 8) as u16);
                 11
-            },
-            (_, _, _) => {4},
+            }
+            (_, _, _) => 4,
         }
     }
 
@@ -539,7 +569,7 @@ impl Z80 {
                 }
                 self.inc_pc();
                 4
-            },
+            }
             // BIT y, r[z]
             1 => {
                 // (IX + d) if ext, r[z] otherwise
@@ -553,7 +583,7 @@ impl Z80 {
                 self.reg.set_flag(4, true);
                 self.inc_pc();
                 8
-            },
+            }
             // RES y, r[z]
             2 => {
                 if z == 6 {
@@ -570,7 +600,7 @@ impl Z80 {
                 }
                 self.inc_pc();
                 8
-            },
+            }
             // SET y, r[z]
             3 => {
                 if z == 6 {
@@ -586,11 +616,9 @@ impl Z80 {
                     self.write_r(z, val | (1 << y), memory);
                 }
                 self.inc_pc();
-                8 
-            },
-            _ => {
-                4
+                8
             }
+            _ => 4,
         }
     }
 
@@ -614,7 +642,7 @@ impl Z80 {
                 self.reg.set_flag(7, val > 127);
                 self.inc_pc();
                 12
-            },
+            }
             // IN r[y], (C)
             (1, _, 0) => {
                 let val = io.input(self.reg.c);
@@ -627,20 +655,20 @@ impl Z80 {
                 self.inc_pc();
                 self.reg.write_8bit_r(y, val);
                 12
-            },
+            }
             // OUT (C), 0
             (1, 6, 1) => {
                 io.output(self.reg.c, 0);
                 self.inc_pc();
                 12
-            },
+            }
             // OUT (C), r[y]
             (1, _, 1) => {
                 let val = self.reg.read_8bit_r(y);
                 io.output(self.reg.c, val);
                 self.inc_pc();
                 12
-            },
+            }
             (1, _, 2) => {
                 let q = (y & 1) != 0;
                 let p: u8 = y >> 1;
@@ -658,7 +686,7 @@ impl Z80 {
                     self.inc_pc();
                     15
                 }
-            },
+            }
             (1, _, 3) => {
                 let q = (y & 1) != 0;
                 let p: u8 = y >> 1;
@@ -677,7 +705,7 @@ impl Z80 {
                     self.inc_pc();
                     20
                 }
-            },
+            }
             // NEG
             (1, _, 4) => {
                 let neg: i8 = 0;
@@ -691,76 +719,74 @@ impl Z80 {
                 self.reg.set_flag(6, val == 0);
                 self.reg.set_flag(7, val > 127);
                 8
-            },
+            }
             // TODO i think these are supposed to do something other than just returning
             // RETI
             (1, 1, 5) => {
                 self.ret(memory);
                 14
-            },
+            }
             // RETN
             (1, _, 5) => {
                 self.ret(memory);
                 14
-            },
+            }
             // IM
             (1, _, 6) => {
                 self.interrupt_mode = match y {
                     0 | 4 => 0,
                     1 | 5 | 2 | 6 => 1,
-                    _ => 2
+                    _ => 2,
                 };
                 self.inc_pc();
                 8
-            },
+            }
             // LD I, A
             (1, 0, 7) => {
                 self.reg.i = self.reg.a;
                 self.inc_pc();
                 println!("{:x}", self.reg.i);
                 9
-            },
+            }
             // LD R, A
             (1, 1, 7) => {
                 self.reg.r = self.reg.a;
                 self.inc_pc();
                 9
-            },
+            }
             // LD A, I
             (1, 2, 7) => {
                 self.reg.a = self.reg.i;
                 self.inc_pc();
                 9
-            },
+            }
             // LD A, R
             (1, 3, 7) => {
                 self.reg.a = self.reg.r;
                 self.inc_pc();
                 9
-            },
+            }
             // RRD
             (1, 4, 7) => {
                 // i have no clue if this is even used in pacman so f it
                 // TODO maybe implement in the future if i plan to reuse this z80 code
                 println!("RRD");
                 18
-            },
+            }
             // RLD
             (1, 5, 7) => {
                 // see above
                 println!("RLD");
                 18
-            },
+            }
             (2, _, 0...3) => {
                 self.bli(y, z, memory, io);
                 16
-            },
-            (_, _, _) => {
-                4
             }
+            (_, _, _) => 4,
         }
     }
-    
+
     // implements the r table in the decoding opcodes documentation with (hl)
     // at 6
     fn r(&mut self, index: u8, mem: &mut Memory) -> u8 {
@@ -783,12 +809,12 @@ impl Z80 {
         match (a, b) {
             // LDI
             (4, 0) => {
-                self.load_inc_dec(mem, true);       
-            },
+                self.load_inc_dec(mem, true);
+            }
             // LDD
             (5, 0) => {
                 self.load_inc_dec(mem, false);
-            },
+            }
             // LDIR
             (6, 0) => {
                 self.load_inc_dec(mem, true);
@@ -797,7 +823,7 @@ impl Z80 {
                 if bc != 0 {
                     self.load_inc_dec(mem, true);
                 }
-            },
+            }
             // LDDR
             (7, 0) => {
                 self.load_inc_dec(mem, false);
@@ -806,15 +832,15 @@ impl Z80 {
                 if bc != 0 {
                     self.load_inc_dec(mem, false);
                 }
-            },
+            }
             // CPI
             (4, 1) => {
                 self.comp_inc_dec(mem, true);
-            },
+            }
             // CPD
             (5, 1) => {
                 self.comp_inc_dec(mem, false);
-            },
+            }
             // CPIR
             (6, 1) => {
                 self.comp_inc_dec(mem, true);
@@ -823,7 +849,7 @@ impl Z80 {
                 if bc != 0 {
                     self.load_inc_dec(mem, false);
                 }
-            },
+            }
             // CPDIR
             (7, 1) => {
                 self.comp_inc_dec(mem, false);
@@ -832,21 +858,21 @@ impl Z80 {
                 if bc != 0 {
                     self.load_inc_dec(mem, false);
                 }
-            },
+            }
             // INI
             (4, 2) => {
                 mem.write_byte(io.input(self.reg.c), self.reg.hl());
                 let tmp = self.reg.hl();
                 self.reg.write_hl(tmp + 1);
                 self.reg.b -= 1;
-            },
+            }
             // IND
             (5, 2) => {
                 mem.write_byte(io.input(self.reg.c), self.reg.hl());
                 let tmp = self.reg.hl();
                 self.reg.write_hl(tmp - 1);
                 self.reg.b -= 1;
-            },
+            }
             // INIR
             (6, 2) => {
                 mem.write_byte(io.input(self.reg.c), self.reg.hl());
@@ -860,7 +886,7 @@ impl Z80 {
                     self.reg.write_hl(tmp + 1);
                     self.reg.b -= 1;
                 }
-            },
+            }
             // INDR
             (7, 2) => {
                 mem.write_byte(io.input(self.reg.c), self.reg.hl());
@@ -874,21 +900,21 @@ impl Z80 {
                     self.reg.write_hl(tmp - 1);
                     self.reg.b -= 1;
                 }
-            },
+            }
             // OUTI
             (4, 3) => {
                 io.output(self.reg.c, mem.read_byte(self.reg.hl()));
                 let tmp = self.reg.hl();
                 self.reg.write_hl(tmp + 1);
                 self.reg.b -= 1;
-            },
+            }
             // OUTD
             (5, 2) => {
                 io.output(self.reg.c, mem.read_byte(self.reg.hl()));
                 let tmp = self.reg.hl();
                 self.reg.write_hl(tmp - 1);
                 self.reg.b -= 1;
-            },
+            }
             // OUTIR
             (6, 2) => {
                 io.output(self.reg.c, mem.read_byte(self.reg.hl()));
@@ -902,7 +928,7 @@ impl Z80 {
                     self.reg.write_hl(tmp + 1);
                     self.reg.b -= 1;
                 }
-            },
+            }
             // OUTDR
             (7, 2) => {
                 io.output(self.reg.c, mem.read_byte(self.reg.hl()));
@@ -916,17 +942,17 @@ impl Z80 {
                     self.reg.write_hl(tmp - 1);
                     self.reg.b -= 1;
                 }
-            },
+            }
             (_, _) => {}
         }
     }
-    
+
     // Loads (HL) into (DE) and then increments or decrements HL and DE
     // based on the <inc> boolean. BC is always decremented
     fn load_inc_dec(&mut self, mem: &mut Memory, inc: bool) {
         let byte = mem.read_byte(self.reg.hl());
         mem.write_byte(byte, self.reg.de());
-        
+
         let mut tmp = self.reg.de();
         if inc {
             // increment HL and DE
@@ -942,7 +968,7 @@ impl Z80 {
         tmp = self.reg.bc();
         self.reg.write_bc(tmp - 1);
     }
-    
+
     // Compares (HL) and A and increments or decrements HL based on <inc>
     // boolean. Again, BC is always decremented
     fn comp_inc_dec(&mut self, mem: &mut Memory, inc: bool) {
@@ -969,21 +995,21 @@ impl Z80 {
     fn alu(&mut self, operator: u8, val: u8) {
         match operator {
             // ADD A,
-            0 => {self.add(val, false)},
+            0 => self.add(val, false),
             // ADC a,
-            1 => {self.add(val, true)},
+            1 => self.add(val, true),
             // SUB a,
-            2 => {self.sub(val, false)},
+            2 => self.sub(val, false),
             // SBC a,
-            3 => {self.sub(val, true)},
+            3 => self.sub(val, true),
             // AND a,
-            4 => {self.and(val)},
+            4 => self.and(val),
             // XOR a,
-            5 => {self.xor(val)},
+            5 => self.xor(val),
             // OR a,
-            6 => {self.or(val)},
+            6 => self.or(val),
             // CP a,
-            7 => {self.cp(val)},
+            7 => self.cp(val),
             _ => {}
         }
         self.inc_pc();
@@ -1004,7 +1030,7 @@ impl Z80 {
             self.detect_half_carry_add(right, left, false);
         }
         self.reg.a = result;
-    
+
         self.reg.set_flag(0, (left + right) as u16 > 255);
         self.reg.set_flag(1, false);
         self.reg.set_flag(6, result == 0);
@@ -1127,40 +1153,48 @@ impl Z80 {
         self.reg.set_flag(7, result > 127);
     }
 
-    fn rot(&mut self, operator: u8, val: u8) -> u8{
+    fn rot(&mut self, operator: u8, val: u8) -> u8 {
         let mut val = val;
         match operator {
             // RLC
-            0 => {self.shift(val, true, false);},
+            0 => {
+                self.shift(val, true, false);
+            }
             // RRC
-            1 => {self.shift(val, true, true);},
+            1 => {
+                self.shift(val, true, true);
+            }
             // RL
-            2 => {self.shift(val, false, false);},
+            2 => {
+                self.shift(val, false, false);
+            }
             // RR
-            3 => {self.shift(val, false, true);},
+            3 => {
+                self.shift(val, false, true);
+            }
             // SLA
             4 => {
                 self.reg.set_flag(0, (val & 1) == 0);
                 val <<= 1;
-            },
+            }
             // SRA
             5 => {
                 self.reg.set_flag(0, (val & 1) == 0);
                 // preserve 7th bit
                 let bit_7 = val & (1 << 7);
                 val = (val >> 1) | bit_7;
-            },
+            }
             // SLL
             6 => {
                 self.reg.set_flag(0, (val & 1) == 0);
                 val <<= 1;
-            },
+            }
             // SRL
             7 => {
                 self.reg.set_flag(0, (val & 1) == 0);
                 val >>= 1;
             }
-            _ => {},
+            _ => {}
         }
 
         self.reg.set_flag(1, false);
@@ -1174,7 +1208,7 @@ impl Z80 {
     fn inc_pc(&mut self) {
         self.reg.pc += 1;
     }
-    
+
     // adds d to pc
     fn jr(&mut self, d: i8) {
         let result = self.reg.pc as i16 + d as i16;
@@ -1185,7 +1219,7 @@ impl Z80 {
         }
         self.reg.pc += 2;
     }
-    
+
     // used for simplifying RLCA, RLA, RRCA, RRA instructions
     //
     // if carry_bit is true, the 7th bit is carried over to the 0th,
@@ -1199,9 +1233,9 @@ impl Z80 {
         } else {
             value <<= 1;
         }
-        let carry_mask = if right {0b00000001} else {0b10000000};
+        let carry_mask = if right { 0b00000001 } else { 0b10000000 };
         let carry = (value & carry_mask) != 0;
-        
+
         let mut mask_shift = 0;
         // if it is a right shift, the 0th bit should be carried to
         // the 7th bit, not the other way around
@@ -1209,13 +1243,13 @@ impl Z80 {
             mask_shift = 7;
         }
 
-        let bit = if carry_bit {carry} else {self.reg.cc(3)};
+        let bit = if carry_bit { carry } else { self.reg.cc(3) };
         if bit {
             value |= 1 << mask_shift;
         } else {
             value &= !(1 << mask_shift);
         }
-        
+
         self.reg.set_flag(0, carry);
         value
     }
@@ -1228,14 +1262,14 @@ impl Z80 {
         self.reg.write_16bit_r(p, true, result);
         self.inc_pc();
     }
-    
+
     // increments register at p and increments pc
     fn inc_16(&mut self, p: u8) {
         let result = self.reg.read_16bit_r(p, true) + 1;
         self.reg.write_16bit_r(p, true, result);
         self.inc_pc();
     }
-    
+
     // decrements register at y and increments pc
     fn dec_8(&mut self, y: u8, mem: &mut Memory) {
         let val = self.reg.read_8bit_r(y);
@@ -1254,7 +1288,7 @@ impl Z80 {
     fn inc_8(&mut self, y: u8, mem: &mut Memory) {
         let val = self.reg.read_8bit_r(y);
         let result = val.wrapping_add(1);
-        
+
         self.reg.set_flag(1, false);
         self.reg.set_flag(6, result == 0);
         self.reg.set_flag(7, result > 127);
@@ -1264,7 +1298,7 @@ impl Z80 {
         self.write_r(y, result, mem);
         self.inc_pc();
     }
-    
+
     // pushes pc + 3 to stack and then jumps to address <addr>
     fn call(&mut self, mem: &mut Memory, addr: u16) {
         let ret_addr = self.reg.pc + 3;
@@ -1274,9 +1308,9 @@ impl Z80 {
 
     // pops top stack entry into pc
     fn ret(&mut self, mem: &mut Memory) {
-        self.reg.pc = self.pop_stack_16(mem);      
+        self.reg.pc = self.pop_stack_16(mem);
     }
-    
+
     // returns byte at memory address pointed to by stack pointer and then
     // increments stack pointer
     fn pop_stack(&mut self, mem: &mut Memory) -> u8 {
@@ -1318,7 +1352,8 @@ impl Z80 {
     // and sets flag accordingly
     fn detect_half_carry_sub(&mut self, left: u8, right: u8, carry: bool) {
         let mut left = left - (carry as u8);
-        self.reg.set_flag(4, (left & 0x0F).wrapping_sub(right & 0x0F) > 0x0F);
+        self.reg
+            .set_flag(4, (left & 0x0F).wrapping_sub(right & 0x0F) > 0x0F);
     }
 
     // detects if an overflow occurs in operation left + right
@@ -1326,7 +1361,7 @@ impl Z80 {
     fn detect_overflow_add(&mut self, left: u8, right: u8, carry: bool) {
         let mut left = left as i8 as i32;
         let right = right as i8 as i32;
-        
+
         left = left + right + (carry as i32);
         self.reg.set_flag(2, (left < -128) || (left > 127));
     }
@@ -1336,16 +1371,18 @@ impl Z80 {
     fn detect_overflow_sub(&mut self, left: u8, right: u8, carry: bool) {
         let mut left = left as i8 as i32;
         let right = right as i8 as i32;
- 
+
         left = left - right - (carry as i32);
         self.reg.set_flag(2, (left < -128) || (left > 127));
     }
-        
+
     // sets parity flag accordingly to the given number
     fn detect_parity(&mut self, mut num: u8) {
         let mut number_of_ones = 0;
         while num != 0 {
-            if num & 1 != 0 {number_of_ones += 1};
+            if num & 1 != 0 {
+                number_of_ones += 1
+            };
             num >>= 1;
         }
     }

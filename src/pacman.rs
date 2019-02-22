@@ -1,9 +1,9 @@
-use rom::Roms;
-use display::Display;
-use cpu::Z80;
 use cpu::mem::Memory;
-use memory_mapper::MemoryMapper;
+use cpu::Z80;
+use display::Display;
 use interrupt_vector::InterruptVector;
+use memory_mapper::MemoryMapper;
+use rom::Roms;
 
 use sdl2;
 use sdl2::event::Event;
@@ -37,31 +37,26 @@ impl<'a> PacmanSystem<'a> {
 
         let sdl_context = sdl2::init().unwrap();
         let video = sdl_context.video().unwrap();
-        let window = video.window("Pacman", 800, 600)
+        let window = video
+            .window("Pacman", 488, 576)
             .position_centered()
             .build()
             .unwrap();
-        
+
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut canvas = window.into_canvas().build().unwrap();
-        
+
         let mut cycles = 0;
         'main: loop {
-            //cycles += self.cpu.run_opcodes(5, &mut self.memory, &mut self.io);
+            cycles += self.cpu.run_opcodes(5, &mut self.memory, &mut self.io);
             for event in event_pump.poll_iter() {
                 match event {
-                    Event::Quit {..} => { break 'main },
+                    Event::Quit { .. } => break 'main,
                     _ => {}
                 }
             }
-            
-            self.display.draw_tile(0, 0, 9, 9);
-            self.display.draw_tile(1, 0, 60, 9);
-            self.display.draw_tile(1, 1, 60, 9);
-            self.display.draw_tile(1, 2, 150, 9);
-            self.display.draw_tile(2, 1, 70, 9);
-            self.display.show(&mut canvas);
-            self.display.draw_sprite(50, 50, 5, 9);
+
+            self.memory.render(&mut self.display);
             canvas.present();
 
             //println!("{}", self.io.data);
@@ -82,10 +77,19 @@ impl<'a> PacmanSystem<'a> {
         let mut step = false;
 
         while true {
+            input.clear();
             let pc = self.cpu.get_pc();
-            
+
             if step || pc == break_point {
-                io::stdin().read_line(&mut input);
+                let result = io::stdin().read_line(&mut input);
+                match result {
+                    Ok(n) => {
+                        println!("{}", n);
+                    }
+                    Err(error) => {
+                        println!("{}", error);
+                    }
+                }
                 let split: Vec<&str> = input.split(" ").collect();
                 match split.get(0) {
                     Some(result) => {
@@ -93,14 +97,19 @@ impl<'a> PacmanSystem<'a> {
                         match *result {
                             "b" | "break" => {
                                 break_point = match split.get(1) {
-                                    Some(addr) => {addr.parse().unwrap()},
-                                    None => {0}
+                                    Some(addr) => addr.parse().unwrap(),
+                                    None => 0,
                                 }
-                            },
-                            "s" | "step" => {println!("asdf");step = true;},
-                            &_ => {println!("Invalid command");}
+                            }
+                            "s" | "step" => {
+                                println!("asdf");
+                                step = true;
+                            }
+                            &_ => {
+                                println!("Invalid command");
+                            }
                         }
-                    },
+                    }
                     None => {}
                 }
                 println!("opcode: {:x}", self.memory.read_byte(pc));

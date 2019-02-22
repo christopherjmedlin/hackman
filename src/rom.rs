@@ -1,14 +1,9 @@
-use std::path::Path;
+use sdl2::pixels::Color;
 use std::fs::File;
 use std::io::Read;
-use sdl2::pixels::Color;
+use std::path::Path;
 
-const GAME_ROM_FILE_NAMES: [&str; 4] = [
-    "pacman.6e",
-    "pacman.6f",
-    "pacman.6h",
-    "pacman.6j",
-];
+const GAME_ROM_FILE_NAMES: [&str; 4] = ["pacman.6e", "pacman.6f", "pacman.6h", "pacman.6j"];
 const COLOR_ROM_FILE_NAME: &str = "82s123.7f";
 const PALETTE_ROM_FILE_NAME: &str = "82s126.4a";
 const TILE_ROM_FILE_NAME: &str = "pacman.5e";
@@ -28,11 +23,16 @@ impl Roms {
     pub fn new() -> Self {
         Roms {
             game_roms: [[0; 4096]; 4],
-            color_rom: [Color {r: 0, g: 0, b: 0, a: 0}; 32],
+            color_rom: [Color {
+                r: 0,
+                g: 0,
+                b: 0,
+                a: 0,
+            }; 32],
             palette_rom: [[0; 4]; 64],
             tile_rom: [0; 16384],
             sprite_rom: [0; 16384],
-            sound_roms: [[0; 256]; 2]
+            sound_roms: [[0; 256]; 2],
         }
     }
 
@@ -56,10 +56,10 @@ impl Roms {
                 "pacman.6f" => &mut self.game_roms[1],
                 "pacman.6h" => &mut self.game_roms[2],
                 "pacman.6j" => &mut self.game_roms[3],
-                _ => panic!("Internal error")
+                _ => panic!("Internal error"),
             };
             Roms::load_file(&path, &mut buf);
-        };
+        }
     }
 
     fn load_color_rom(&mut self, directory: &Path) {
@@ -68,14 +68,30 @@ impl Roms {
 
         for (i, byte) in bytes.iter().enumerate() {
             let mut color = &mut self.color_rom[i];
-            if (byte & 1) != 0 {color.r += 0x21}
-            if (byte & 1 << 1) != 0 {color.r += 0x47}
-            if (byte & 1 << 2) != 0 {color.r += 0x97}
-            if (byte & 1 << 3) != 0 {color.g += 0x21}
-            if (byte & 1 << 4) != 0 {color.g += 0x47}
-            if (byte & 1 << 5) != 0 {color.g += 0x97}
-            if (byte & 1 << 6) != 0 {color.b += 0x51}
-            if (byte & 1 << 7) != 0 {color.b += 0xAE}
+            if (byte & 1) != 0 {
+                color.r += 0x21
+            }
+            if (byte & 1 << 1) != 0 {
+                color.r += 0x47
+            }
+            if (byte & 1 << 2) != 0 {
+                color.r += 0x97
+            }
+            if (byte & 1 << 3) != 0 {
+                color.g += 0x21
+            }
+            if (byte & 1 << 4) != 0 {
+                color.g += 0x47
+            }
+            if (byte & 1 << 5) != 0 {
+                color.g += 0x97
+            }
+            if (byte & 1 << 6) != 0 {
+                color.b += 0x51
+            }
+            if (byte & 1 << 7) != 0 {
+                color.b += 0xAE
+            }
         }
     }
 
@@ -84,16 +100,16 @@ impl Roms {
         Roms::load_file(&directory.join(PALETTE_ROM_FILE_NAME), &mut bytes);
 
         for (i, byte) in bytes.iter().enumerate() {
-            self.palette_rom[i/4][i%4] = *byte as usize;
+            self.palette_rom[i / 4][i % 4] = *byte as usize;
             let color = self.color_rom[*byte as usize];
         }
     }
-    
+
     // decodes the bit planes
     fn load_tile_rom(&mut self, directory: &Path) {
         let mut bytes: [u8; 4096] = [0; 4096];
         Roms::load_file(&directory.join(TILE_ROM_FILE_NAME), &mut bytes);
-        
+
         for (i, byte) in bytes.iter().enumerate() {
             for bit in 0..4 {
                 let lsb = (byte & 1 << bit) >> bit;
@@ -106,7 +122,7 @@ impl Roms {
     fn load_sprite_rom(&mut self, directory: &Path) {
         let mut bytes: [u8; 4096] = [0; 4096];
         Roms::load_file(&directory.join(SPRITE_ROM_FILE_NAME), &mut bytes);
-        
+
         for (i, byte) in bytes.iter().enumerate() {
             for bit in 0..4 {
                 let lsb = (byte & 1 << bit) >> bit;
@@ -122,8 +138,8 @@ impl Roms {
             Ok(file) => file,
         };
         match file.read(buffer) {
-                Ok(_) => {},
-                Err(why) => panic!("Error reading ROM")
+            Ok(_) => {}
+            Err(why) => panic!("Error reading ROM"),
         };
     }
 }

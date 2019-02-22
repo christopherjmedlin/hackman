@@ -1,9 +1,9 @@
 use rom::Roms;
 
+use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-use sdl2::rect::Rect;
-use sdl2::pixels::Color;
 
 pub struct Display<'a> {
     roms: &'a Roms,
@@ -26,7 +26,7 @@ impl<'a> Display<'a> {
         self.draw_slice(x, y + 4, slice_index, palette, false, false, false);
         self.draw_slice(x, y, slice_index + 32, palette, false, false, false);
     }
-    
+
     pub fn draw_sprite(&mut self, x: usize, y: usize, sprite: usize, palette: usize) {
         let slice_index = sprite * 256;
 
@@ -41,7 +41,7 @@ impl<'a> Display<'a> {
     }
 
     pub fn show(&self, canvas: &mut Canvas<Window>) {
-        for x in 0..224  {
+        for x in 0..224 {
             for y in 0..288 {
                 let x_coord = (x * 2) as i32;
                 let y_coord = (y * 2) as i32;
@@ -50,12 +50,25 @@ impl<'a> Display<'a> {
             }
         }
     }
-    
+
     // draws an 8x4 slice of pixels. if sprite is true, it use sprite rom, tile rom otherwise
-    fn draw_slice(&mut self, x: usize, y: usize, mut index: usize, palette: usize, sprite: bool, x_flip: bool, y_flip: bool) {
-        let video_rom = & if sprite {self.roms.sprite_rom} else {self.roms.tile_rom};
+    fn draw_slice(
+        &mut self,
+        x: usize,
+        y: usize,
+        mut index: usize,
+        palette: usize,
+        sprite: bool,
+        x_flip: bool,
+        y_flip: bool,
+    ) {
+        let video_rom = &if sprite {
+            self.roms.sprite_rom
+        } else {
+            self.roms.tile_rom
+        };
         let palette = &self.roms.palette_rom[palette];
-        
+
         for x_offset in (0..8).rev() {
             for y_offset in (0..4).rev() {
                 let color_index = palette[video_rom[index] as usize];

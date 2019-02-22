@@ -59,7 +59,7 @@ pub enum Address {
     Sound(usize),
     SpriteXYRegister(usize),
     DipSwitchRegister,
-    WatchdogTimerReset
+    WatchdogTimerReset,
 }
 
 /// Maps a memory address to an Address enum corresponding
@@ -71,26 +71,27 @@ pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
     let address = (addr, writing);
 
     match address {
-        (GAME_ROM_START...GAME_ROM_END, false) =>
-            Ok(Address::GameRom((addr - GAME_ROM_START) as usize)),
+        (GAME_ROM_START...GAME_ROM_END, false) => {
+            Ok(Address::GameRom((addr - GAME_ROM_START) as usize))
+        }
 
-        (GAME_ROM_START...GAME_ROM_END, true) =>
-            Err("Cannot write to ROM."),
+        (GAME_ROM_START...GAME_ROM_END, true) => Err("Cannot write to ROM."),
 
-        (VRAM_TILES_START...VRAM_TILES_END, _) =>
-            Ok(Address::VramTiles((addr - VRAM_TILES_START) as usize)),
+        (VRAM_TILES_START...VRAM_TILES_END, _) => {
+            Ok(Address::VramTiles((addr - VRAM_TILES_START) as usize))
+        }
 
-        (VRAM_PALETTES_START...VRAM_PALETTES_END, _) => 
-            Ok(Address::VramSprites((addr - VRAM_PALETTES_START) as usize)),
+        (VRAM_PALETTES_START...VRAM_PALETTES_END, _) => {
+            Ok(Address::VramSprites((addr - VRAM_PALETTES_START) as usize))
+        }
 
-        (RAM_START...RAM_END, _) => 
-            Ok(Address::Ram((addr - RAM_START) as usize)),
+        (RAM_START...RAM_END, _) => Ok(Address::Ram((addr - RAM_START) as usize)),
 
-        (VRAM_SPRITES_START...VRAM_SPRITES_END, _) =>
-            Ok(Address::VramSprites((addr - VRAM_SPRITES_START) as usize)),
-        
-        (IN0_REGISTER_START...IN0_REGISTER_END, false) =>
-            Ok(Address::IN0Register),
+        (VRAM_SPRITES_START...VRAM_SPRITES_END, _) => {
+            Ok(Address::VramSprites((addr - VRAM_SPRITES_START) as usize))
+        }
+
+        (IN0_REGISTER_START...IN0_REGISTER_END, false) => Ok(Address::IN0Register),
 
         (INTERRUPT_ENABLE_REGISTER, true) => Ok(Address::InterruptEnable),
         (SOUND_ENABLE_REGISTER, true) => Ok(Address::SoundEnable),
@@ -100,23 +101,20 @@ pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
         (PLAYER_TWO_LAMP_REGISTER, true) => Ok(Address::PlayerTwoLampRegister),
         (COIN_LOCKOUT_REGISTER, true) => Ok(Address::CoinLockoutRegister),
         (COIN_COUNTER_REGISTER, true) => Ok(Address::CoinCounterRegister),
-        
-        (IN1_REGISTER_START...IN1_REGISTER_END, false) =>
-            Ok(Address::IN1Register),
 
-        (SOUND_START...SOUND_END, true) => 
-            Ok(Address::Sound((addr - SOUND_START) as usize)),
+        (IN1_REGISTER_START...IN1_REGISTER_END, false) => Ok(Address::IN1Register),
 
-        (SPRITE_XY_START...SPRITE_XY_END, true) =>
-            Ok(Address::SpriteXYRegister((addr - SPRITE_XY_START) as usize)),
-        
-        (DIP_SWITCH_START...DIP_SWITCH_END, _) =>
-            Ok(Address::DipSwitchRegister),
+        (SOUND_START...SOUND_END, true) => Ok(Address::Sound((addr - SOUND_START) as usize)),
 
-        (WATCHDOG_START...WATCHDOG_END, _) =>
-            Ok(Address::WatchdogTimerReset),
+        (SPRITE_XY_START...SPRITE_XY_END, true) => {
+            Ok(Address::SpriteXYRegister((addr - SPRITE_XY_START) as usize))
+        }
 
-        (_, _) => Err("Could not map address")
+        (DIP_SWITCH_START...DIP_SWITCH_END, _) => Ok(Address::DipSwitchRegister),
+
+        (WATCHDOG_START...WATCHDOG_END, _) => Ok(Address::WatchdogTimerReset),
+
+        (_, _) => Err("Could not map address"),
     }
 }
 

@@ -1,5 +1,4 @@
 pub trait InputOutput {
-    
     /// Read a byte from peripheral device at port <port>
     fn input(&self, port: u8) -> u8;
 
@@ -9,14 +8,12 @@ pub trait InputOutput {
 
 /// An implementation of InputOutput trait for testing purposes
 pub struct TestIO {
-    pub data: u8
+    pub data: u8,
 }
 
 impl TestIO {
     pub fn new() -> Self {
-        TestIO {
-            data: 0
-        }
+        TestIO { data: 0 }
     }
 }
 

@@ -1,11 +1,13 @@
 use cpu::io::InputOutput;
 
 pub struct InterruptVector {
-    pub data: u8
+    pub data: u8,
 }
 
 impl InterruptVector {
-    pub fn new() -> Self {InterruptVector {data: 0}}
+    pub fn new() -> Self {
+        InterruptVector { data: 0 }
+    }
 }
 
 impl InputOutput for InterruptVector {

@@ -1,6 +1,6 @@
-use memory_map::{Address, map_address};
-use display::Display;
 use cpu::mem::Memory;
+use display::Display;
+use memory_map::{map_address, Address};
 use rom::Roms;
 
 pub struct MemoryMapper<'a> {
@@ -39,20 +39,24 @@ impl<'a> MemoryMapper<'a> {
 }
 
 impl<'a> Memory for MemoryMapper<'a> {
-
     fn write_byte(&mut self, byte: u8, addr: u16) {
         match MemoryMapper::map(addr, true) {
-            Address::Ram(offset) => {self.ram[offset] = byte;},
-            Address::VramTiles(offset) => {self.tile_ram[offset] = byte as usize;},
-            Address::VramPalettes(offset) => {self.palette_ram[offset] = byte as usize;},
+            Address::Ram(offset) => {
+                self.ram[offset] = byte;
+            }
+            Address::VramTiles(offset) => {
+                self.tile_ram[offset] = byte as usize;
+            }
+            Address::VramPalettes(offset) => {
+                self.palette_ram[offset] = byte as usize;
+            }
             _ => {}
         }
     }
 
     fn read_byte(&self, addr: u16) -> u8 {
         match MemoryMapper::map(addr, false) {
-            Address::GameRom(offset) =>
-                self.roms.game_roms[offset/0x1000][offset%0x1000],
+            Address::GameRom(offset) => self.roms.game_roms[offset / 0x1000][offset % 0x1000],
 
             Address::Ram(offset) => self.ram[offset],
             _ => 0,
@@ -91,12 +95,11 @@ mod tests {
         assert_eq!(mapper.read_byte(0x4803), 0x1);
     }
 
-
     #[test]
     #[should_panic]
     fn test_invalid_write() {
         let roms = Box::new(Roms::new());
         let mut mapper = MemoryMapper::new(&roms);
-        mapper.write_byte(0x11, 0x01); 
+        mapper.write_byte(0x11, 0x01);
     }
 }

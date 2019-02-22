@@ -1,6 +1,6 @@
 use super::*;
-use cpu::mem::TestMemory;
 use cpu::io::TestIO;
+use cpu::mem::TestMemory;
 
 #[test]
 fn test_run_opcodes() {
@@ -23,7 +23,7 @@ fn test_jr() {
     assert_eq!(cpu.reg.pc, 7);
     cpu.jr(-3);
     assert_eq!(cpu.reg.pc, 6);
-    
+
     let mut mem = TestMemory::new();
     let mut io = TestIO::new();
 
@@ -41,7 +41,7 @@ fn test_indirect_loads() {
 
     cpu.reg.write_bc(0x0012);
     mem.ram[0x0012] = 0x11;
-    
+
     cpu.run_opcode(0x0A, &mut mem, &mut io, false);
 
     assert_eq!(cpu.reg.a, mem.ram[0x0012]);
@@ -52,7 +52,7 @@ fn test_16bit_inc_dec() {
     let mut cpu = Z80::new();
     let mut mem = TestMemory::new();
     let mut io = TestIO::new();
-    
+
     cpu.reg.sp = 0;
     cpu.run_opcode(0x33, &mut mem, &mut io, false);
     assert_eq!(cpu.reg.sp, 1);
@@ -91,7 +91,7 @@ fn test_shift() {
     result = cpu.shift(0b0101_0101, false, false);
     assert_eq!(result, 0b1010_1010);
     assert_eq!(cpu.reg.cc(3), true);
-    
+
     cpu.reg.set_flag(0, false);
     result = cpu.shift(0b0000_0110, true, true);
     assert_eq!(result, 0b1000_0011);
@@ -101,7 +101,7 @@ fn test_shift() {
 #[test]
 fn test_detect_overflow() {
     let mut cpu = Z80::new();
-    
+
     cpu.detect_overflow_add(70, 70, false);
     assert_eq!(cpu.reg.read_flag(2), true);
     cpu.detect_overflow_add(10, 10, false);
@@ -128,7 +128,7 @@ fn test_8bit_loading() {
     let mut cpu = Z80::new();
     let mut memory = TestMemory::new();
     let mut io = TestIO::new();
-    
+
     cpu.reg.a = 5;
     cpu.run_opcode(0x47, &mut memory, &mut io, false);
     assert_eq!(cpu.reg.b, 5);
@@ -177,7 +177,7 @@ fn test_stack() {
     cpu.push_stack(&mut memory, 6);
     cpu.push_stack(&mut memory, 5);
     assert_eq!(memory.ram[49], 10);
-    
+
     assert_eq!(cpu.pop_stack(&mut memory), 5);
     assert_eq!(cpu.pop_stack(&mut memory), 6);
     assert_eq!(cpu.pop_stack(&mut memory), 10);
@@ -194,7 +194,7 @@ fn test_stack() {
 fn test_return() {
     let mut cpu = Z80::new();
     let mut memory = TestMemory::new();
-    
+
     cpu.reg.pc = 100;
     cpu.reg.sp = 50;
     cpu.call(&mut memory, 150);
@@ -222,7 +222,7 @@ fn test_16bit_ld() {
     let mut cpu = Z80::new();
     let mut memory = TestMemory::new();
     let mut io = TestIO::new();
-    
+
     cpu.reg.write_hl(0x1337);
     memory.ram[0] = 0xED;
     memory.ram[1] = 0x63;
@@ -237,7 +237,7 @@ fn test_neg() {
     let mut cpu = Z80::new();
     let mut memory = TestMemory::new();
     let mut io = TestIO::new();
-    
+
     cpu.reg.a = 8;
     memory.ram[0] = 0xED;
     memory.ram[1] = 0x4C;
@@ -251,13 +251,13 @@ fn test_interrupt() {
     let mut cpu = Z80::new();
     let mut memory = TestMemory::new();
     let mut io = TestIO::new();
-    
+
     memory.ram[770] = 0x09;
     cpu.interrupt(2);
     cpu.reg.i = 3;
     cpu.reg.sp = 100;;
     cpu.run_opcode(0x00, &mut memory, &mut io, false);
-    
+
     // taking into account the PC increment
     assert_eq!(cpu.reg.pc, 0x0A);
 }
@@ -267,7 +267,7 @@ fn test_io() {
     let mut cpu = Z80::new();
     let mut memory = TestMemory::new();
     let mut io = TestIO::new();
-    
+
     io.data = 20;
     cpu.reg.d = 1;
     memory.ram[0] = 0xED;
@@ -320,7 +320,7 @@ fn test_ix_iy_bit_operations() {
     let mut cpu = Z80::new();
     let mut memory = TestMemory::new();
     let mut io = TestIO::new();
-    
+
     // SET 4 (IY + *)
     memory.ram[0] = 0xFD;
     memory.ram[1] = 0xCB;
