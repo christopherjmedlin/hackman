@@ -1,9 +1,9 @@
 use rom::Roms;
 use display::Display;
 use cpu::Z80;
-use cpu::io::TestIO;
 use cpu::mem::Memory;
 use memory_mapper::MemoryMapper;
+use interrupt_vector::InterruptVector;
 
 use sdl2;
 use sdl2::event::Event;
@@ -14,7 +14,7 @@ pub struct PacmanSystem<'a> {
     cpu: Z80,
     memory: MemoryMapper<'a>,
     // just for now
-    io: TestIO,
+    io: InterruptVector,
     display: Display<'a>,
 }
 
@@ -24,7 +24,7 @@ impl<'a> PacmanSystem<'a> {
             roms: roms,
             cpu: Z80::new(),
             memory: MemoryMapper::new(roms),
-            io: TestIO::new(),
+            io: InterruptVector::new(),
             display: Display::new(roms),
         }
     }
@@ -32,7 +32,6 @@ impl<'a> PacmanSystem<'a> {
     pub fn start(&mut self) {
         /*
         while true {
-            self.cpu.run_opcodes(1, &mut self.memory, &mut self.io);
         }
         */
 
@@ -45,20 +44,33 @@ impl<'a> PacmanSystem<'a> {
         
         let mut event_pump = sdl_context.event_pump().unwrap();
         let mut canvas = window.into_canvas().build().unwrap();
-
+        
+        let mut cycles = 0;
         'main: loop {
-            self.display.draw_tile(0, 0, 1, 1);
-            self.display.draw_tile(1, 0, 145, 15);
-            self.display.draw_tile(1, 1, 147, 15);
-            canvas.clear();
-            self.display.show(&mut canvas);
-            canvas.present();
-
+            //cycles += self.cpu.run_opcodes(5, &mut self.memory, &mut self.io);
             for event in event_pump.poll_iter() {
                 match event {
                     Event::Quit {..} => { break 'main },
                     _ => {}
                 }
+            }
+            
+            self.display.draw_tile(0, 0, 9, 9);
+            self.display.draw_tile(1, 0, 60, 9);
+            self.display.draw_tile(1, 1, 60, 9);
+            self.display.draw_tile(1, 2, 150, 9);
+            self.display.draw_tile(2, 1, 70, 9);
+            self.display.show(&mut canvas);
+            self.display.draw_sprite(50, 50, 5, 9);
+            canvas.present();
+
+            //println!("{}", self.io.data);
+            if cycles > 51200 {
+                cycles = 0;
+                self.memory.render(&mut self.display);
+                self.display.show(&mut canvas);
+                canvas.present();
+                self.cpu.interrupt(self.io.data);
             }
         }
     }

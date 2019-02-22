@@ -69,7 +69,7 @@ pub enum Address {
 /// specified address, otherwise it is reading from it.
 pub fn map_address(addr: u16, writing: bool) -> Result<Address, &'static str> {
     let address = (addr, writing);
-    
+
     match address {
         (GAME_ROM_START...GAME_ROM_END, false) =>
             Ok(Address::GameRom((addr - GAME_ROM_START) as usize)),

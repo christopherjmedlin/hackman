@@ -12,6 +12,7 @@ const GAME_ROM_FILE_NAMES: [&str; 4] = [
 const COLOR_ROM_FILE_NAME: &str = "82s123.7f";
 const PALETTE_ROM_FILE_NAME: &str = "82s126.4a";
 const TILE_ROM_FILE_NAME: &str = "pacman.5e";
+const SPRITE_ROM_FILE_NAME: &str = "pacman.5f";
 
 pub struct Roms {
     pub game_roms: [[u8; 4096]; 4],
@@ -19,7 +20,7 @@ pub struct Roms {
     // usize because palettes just contain indices into the color_rom
     pub palette_rom: [[usize; 4]; 64],
     pub tile_rom: [u8; 16384],
-    pub sprite_rom: [u8; 4096],
+    pub sprite_rom: [u8; 16384],
     pub sound_roms: [[u8; 256]; 2],
 }
 
@@ -30,7 +31,7 @@ impl Roms {
             color_rom: [Color {r: 0, g: 0, b: 0, a: 0}; 32],
             palette_rom: [[0; 4]; 64],
             tile_rom: [0; 16384],
-            sprite_rom: [0; 4096],
+            sprite_rom: [0; 16384],
             sound_roms: [[0; 256]; 2]
         }
     }
@@ -42,6 +43,7 @@ impl Roms {
         roms.load_color_rom(directory);
         roms.load_palette_rom(directory);
         roms.load_tile_rom(directory);
+        roms.load_sprite_rom(directory);
         roms
     }
 
@@ -97,6 +99,19 @@ impl Roms {
                 let lsb = (byte & 1 << bit) >> bit;
                 let msb = (byte & 1 << (bit + 4)) >> (bit + 3);
                 self.tile_rom[i * 4 + bit] = lsb | msb;
+            }
+        }
+    }
+
+    fn load_sprite_rom(&mut self, directory: &Path) {
+        let mut bytes: [u8; 4096] = [0; 4096];
+        Roms::load_file(&directory.join(SPRITE_ROM_FILE_NAME), &mut bytes);
+        
+        for (i, byte) in bytes.iter().enumerate() {
+            for bit in 0..4 {
+                let lsb = (byte & 1 << bit) >> bit;
+                let msb = (byte & 1 << (bit + 4)) >> (bit + 3);
+                self.sprite_rom[i * 4 + bit] = lsb | msb;
             }
         }
     }

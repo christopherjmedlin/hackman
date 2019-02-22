@@ -1,24 +1,39 @@
 use memory_map::{Address, map_address};
+use display::Display;
 use cpu::mem::Memory;
 use rom::Roms;
 
 pub struct MemoryMapper<'a> {
     roms: &'a Box<Roms>,
     ram: [u8; 2032],
+    tile_ram: [usize; 0x400],
+    palette_ram: [usize; 0x400],
 }
 
 impl<'a> MemoryMapper<'a> {
     pub fn new(roms: &'a Box<Roms>) -> Self {
         MemoryMapper {
             roms: roms,
-            ram: [0; 2032]
+            ram: [0; 2032],
+            tile_ram: [0; 0x400],
+            palette_ram: [0; 0x400],
         }
     }
 
     fn map(addr: u16, writing: bool) -> Address {
         match map_address(addr, writing) {
             Ok(addr) => addr,
-            Err(why) => panic!("Failed to map memory address: 0x{:x}", addr),
+            Err(why) => panic!("Failed to map memory address: 0x{:x} ({})", addr, why),
+        }
+    }
+
+    pub fn render(&self, display: &mut Display) {
+        let mut addr = 0x3A0;
+        for x in 2..30 {
+            for y in 2..34 {
+                display.draw_tile(x - 2, y - 2, self.tile_ram[addr], self.palette_ram[addr]);
+                addr -= 1;
+            }
         }
     }
 }
@@ -28,6 +43,8 @@ impl<'a> Memory for MemoryMapper<'a> {
     fn write_byte(&mut self, byte: u8, addr: u16) {
         match MemoryMapper::map(addr, true) {
             Address::Ram(offset) => {self.ram[offset] = byte;},
+            Address::VramTiles(offset) => {self.tile_ram[offset] = byte as usize;},
+            Address::VramPalettes(offset) => {self.palette_ram[offset] = byte as usize;},
             _ => {}
         }
     }
